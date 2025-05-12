@@ -1,2 +1,2 @@
-# speech_transcript_embeddings
-Speech--> Transcript Embeddings training
+## Transcript--SPEECH Embedding similarity model
+
