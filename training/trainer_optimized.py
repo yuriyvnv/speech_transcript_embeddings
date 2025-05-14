@@ -904,16 +904,10 @@ def train_epoch(
     scaler = None,
 ):
     """
-    Train one epoch with:
-      - per-sample 2-way InfoNCE (clean vs. corrupt text)
-      - word-alignment weighting via loss_fn
-      - optional corrupt_gamma in loss_fn
-      - gradient accumulation, mixed precision
-    Expects each batch to have:
-      input_ids_pos, attention_mask_pos,
-      input_ids_neg, attention_mask_neg,
-      input_values, attention_mask_audio
-    Returns: dict(loss, clean_similarity, corrupt_similarity, similarity_gap)
+    Train one epoch with the full model architecture including:
+    - Cross-modal attention
+    - Word-level alignment
+    - InfoNCE loss with alignment weighting
     """
     model.train()
     total_loss = 0.0
@@ -930,23 +924,20 @@ def train_epoch(
                 batch[k] = v.to(device)
 
         def _forward():
-            # encode pos / neg / audio
-            txt_pos, _ = model.encode_text(batch["input_ids_pos"], batch["attention_mask_pos"])
-            txt_neg, _ = model.encode_text(batch["input_ids_neg"], batch["attention_mask_neg"])
-            aud_emb, _ = model.encode_audio(batch["input_values"], batch["attention_mask_audio"])
+            # Use the COMPLETE architecture via compute_pos_neg_embeddings
+            # This includes: encoding → cross-modal attention → word alignment
+            txt_pos_norm, txt_neg_norm, aud_norm = EnhancedAudioTextModel.compute_pos_neg_embeddings(model, batch)
+            
+            # Compute cosine similarities
+            s_pos = (aud_norm * txt_pos_norm).sum(dim=1)  # [B]
+            s_neg = (aud_norm * txt_neg_norm).sum(dim=1)  # [B]
+            
 
-            # normalize
-            txt_pos = F.normalize(txt_pos, p=2, dim=1)
-            txt_neg = F.normalize(txt_neg, p=2, dim=1)
-            aud_emb = F.normalize(aud_emb, p=2, dim=1)
-
-            # cosine scores
-            s_pos = (aud_emb * txt_pos).sum(dim=1)  # [B]
-            s_neg = (aud_emb * txt_neg).sum(dim=1)  # [B]
-            # get last_alignment_scores if any
-            align = getattr(model, "last_alignment_scores", None)
-
-            loss = loss_fn(s_pos, s_neg, alignment_scores=align)
+            # Get alignment scores which were set by compute_pos_neg_embeddings
+            alignment_scores = getattr(model, "last_alignment_scores", None)
+            
+            # Calculate loss
+            loss = loss_fn(s_pos, s_neg, alignment_scores=alignment_scores)
             return loss, s_pos, s_neg
 
         # 2) forward (+AMP) + backward
@@ -1004,7 +995,6 @@ def train_epoch(
 
 
 
-
 def evaluate(model,
              data_loader,
              loss_fn,
@@ -1013,12 +1003,15 @@ def evaluate(model,
              split: str = "Validation",
              fp16: bool = False):
     """
-    Evaluate the model and return all similarity / loss statistics.
+    Evaluate the model using the full architecture pipeline,
+    maintaining consistency with the training process.
     """
     model.eval()
 
     total_loss = 0.0
-    all_similarities, clean_similarities, corrupt_similarities = [], [], []
+    all_similarities = []
+    clean_similarities = []
+    corrupt_similarities = []
     sample_count = 0
 
     desc = f"Epoch {epoch} [{split}]" if epoch is not None else f"[{split}]"
@@ -1027,93 +1020,65 @@ def evaluate(model,
     with torch.no_grad():
         for batch_idx, batch in enumerate(progress_bar):
             try:
-                # ------------------------------------------------------------------
-                # 1. Fix key names to match what the model expects
-                # ------------------------------------------------------------------
                 # Skip empty batches
                 if batch is None:
                     logger.warning("Skipping None batch during evaluation")
                     continue
 
-                # Standardize key names for model compatibility
-                eval_batch = {
-                    "input_ids": batch["input_ids_pos"],
-                    "attention_mask": batch["attention_mask_pos"],
-                    "input_values": batch["input_values"],
-                    "attention_mask_audio": batch["attention_mask_audio"],
-                    "is_corrupted": batch["is_corrupted"] if "is_corrupted" in batch else torch.zeros(batch["input_ids_pos"].size(0), dtype=torch.long)
-                }
+                # Move to device
+                batch = {k: v.to(device, non_blocking=True) if isinstance(v, torch.Tensor) else v
+                         for k, v in batch.items()}
 
-                # ------------------------------------------------------------------
-                # 2. Skip dummy batches
-                # ------------------------------------------------------------------
-                if eval_batch["input_ids"].shape[0] == 1 and torch.all(eval_batch["input_ids"] == 0):
-                    logger.warning("Skipping dummy batch during evaluation")
-                    continue
-
-                # ------------------------------------------------------------------
-                # 3. Move tensors to the correct device
-                # ------------------------------------------------------------------
-                eval_batch = {k: v.to(device, non_blocking=True) if isinstance(v, torch.Tensor) else v
-                         for k, v in eval_batch.items()}
-
-                # ------------------------------------------------------------------
-                # 4. Forward pass (fp16 optional)
-                # ------------------------------------------------------------------
+                # Run forward pass with both positive and negative examples
                 autocast_ctx = torch.amp.autocast(device_type='cuda') if fp16 else torch.cuda.amp.autocast(enabled=False)
                 with autocast_ctx:
-                    text_emb, audio_emb = model(eval_batch)
+                    # Use compute_pos_neg_embeddings to get embeddings - same as in training
+                    txt_pos_emb, txt_neg_emb, aud_emb = EnhancedAudioTextModel.compute_pos_neg_embeddings(model, batch)
+                    
+                    # Calculate similarities
+                    s_pos = (aud_emb * txt_pos_emb).sum(dim=1)  # [B]
+                    s_neg = (aud_emb * txt_neg_emb).sum(dim=1)  # [B]
+                    
+                    # Get alignment scores
                     alignment_scores = getattr(model, "last_alignment_scores", None)
+                    
+                    # Calculate loss correctly
+                    loss = loss_fn(s_pos, s_neg, alignment_scores=alignment_scores)
 
-                    # We now only have clean pairs in evaluation
-                    loss_t2a = loss_fn(
-                        text_emb, 
-                        audio_emb,
-                        alignment_scores
-                    )
-                    loss_a2t = loss_fn(
-                        audio_emb,
-                        text_emb,
-                        alignment_scores
-                    )
-                    loss = 0.5 * (loss_t2a + loss_a2t)
+                # Collect similarities
+                all_similarities.extend(s_pos.cpu().numpy())  # Use positive similarities for general metrics
+                clean_similarities.extend(s_pos.cpu().numpy())
+                corrupt_similarities.extend(s_neg.cpu().numpy())
 
-                # ------------------------------------------------------------------
-                # 5. Collect similarities and metrics
-                # ------------------------------------------------------------------
-                sims = (text_emb * audio_emb).sum(dim=1)  # cosine because both are L2-normed
-                all_similarities.extend(sims.cpu().numpy())
-
-                # For compatibility with existing code, treat all as clean in this version
-                clean_similarities.extend(sims.cpu().numpy())
-
-                batch_size = text_emb.size(0)
+                # Update counters
+                batch_size = aud_emb.size(0)
                 sample_count += batch_size
                 total_loss += loss.item() * batch_size
 
-                # Live progress bar
+                # Update progress bar
                 avg_loss = total_loss / sample_count
                 avg_clean = np.mean(clean_similarities) if clean_similarities else 0.0
                 avg_corrupt = np.mean(corrupt_similarities) if corrupt_similarities else 0.0
+                gap = avg_clean - avg_corrupt
                 progress_bar.set_postfix({
                     "loss": f"{avg_loss:.4f}",
                     "clean_sim": f"{avg_clean:.3f}",
                     "corrupt_sim": f"{avg_corrupt:.3f}",
-                    "diff": f"{(avg_clean - avg_corrupt):.3f}"
+                    "gap": f"{gap:.3f}"
                 })
 
-                # Tidy up GPU mem every few batches
+                # Clean up GPU memory
                 if batch_idx % 10 == 0:
                     torch.cuda.empty_cache()
 
             except Exception as e:
                 logger.error(f"Error in evaluation batch {batch_idx}: {e}")
-                logger.error(f"Batch keys: {list(batch.keys())}")
-                continue  # Skip troublesome batch but keep going
+                logger.error(f"Batch keys: {list(batch.keys() if batch else [])}")
+                import traceback
+                logger.error(traceback.format_exc())
+                continue
 
-    # ----------------------------------------------------------------------
-    # 6. Aggregate final metrics
-    # ----------------------------------------------------------------------
+    # Calculate final metrics
     if sample_count == 0:
         logger.warning(f"No valid samples were processed during {split} evaluation")
         return {k: 0.0 for k in (
