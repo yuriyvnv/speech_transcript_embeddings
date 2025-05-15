@@ -414,30 +414,30 @@ class EnhancedAudioTextModel(nn.Module):
         if model.use_cross_modal:
             # text→audio on pos
             txt_pos_fused, _ = model.apply_cross_modal_attention(
-                txt_pos_proj,
+                txt_pos_proj.unsqueeze(1),
                 txt_pos_hidden,
                 batch["attention_mask_pos"],
-                aud_proj,
+                aud_proj.unsqueeze(1),
                 aud_hidden,
                 batch["attention_mask_audio"],
             )
 
             # text→audio on neg
             txt_neg_fused, _ = model.apply_cross_modal_attention(
-                txt_neg_proj,
+                txt_neg_proj.unsqueeze(1),
                 txt_neg_hidden,
                 batch["attention_mask_neg"],
-                aud_proj,
+                aud_proj.unsqueeze(1),
                 aud_hidden,
                 batch["attention_mask_audio"],
             )
 
             # audio→text (we can pick pos for symmetry)
             aud_fused, _ = model.apply_cross_modal_attention(
-                aud_proj,
+                aud_proj.unsqueeze(1),
                 aud_hidden,
                 batch["attention_mask_audio"],
-                txt_pos_proj,
+                txt_pos_proj.unsqueeze(1),
                 txt_pos_hidden,
                 batch["attention_mask_pos"],
             )
@@ -888,7 +888,22 @@ def custom_collate_fn(batch):
 
 
 
+def to_human_readable(cosine: torch.Tensor,
+                      temperature: float = 0.07,
+                      scale: str = "prob") -> torch.Tensor:
+    """
+    Convert raw cosine similarities (-1 … 1) to something intuitive.
 
+    scale = "0to1" :  linear map  (cos + 1) / 2      ∈ [0,1]
+    scale = "prob" :  sigmoid(cos / τ)               ∈ [0,1]
+                      (needs the same τ as the loss)
+    """
+    if scale == "0to1":
+        return (cosine + 1.) * 0.5
+    elif scale == "prob":
+        return torch.sigmoid(cosine / temperature)
+    else:
+        raise ValueError(f"Unknown scale '{scale}'. Use '0to1' or 'prob'.")
 
 # ===== TRAINING AND EVALUATION FUNCTIONS =====
 
@@ -973,11 +988,14 @@ def train_epoch(
         B = s_pos.size(0)
         total_loss += loss.item() * accumulation_steps * B
         sample_count += B
+        
+        hr_pos = to_human_readable(s_pos, temperature=0.07, scale="prob")
+        hr_neg = to_human_readable(s_neg, temperature=0.07, scale="prob")
 
         # 6) update progress bar
         avg_loss = total_loss / sample_count
-        avg_clean = np.mean(clean_sims)
-        avg_corrupt = np.mean(corrupt_sims)
+        avg_clean = hr_pos.mean().item()
+        avg_corrupt = hr_neg.mean().item()
         pbar.set_postfix({
             "loss":      f"{avg_loss:.4f}",
             "clean_sim": f"{avg_clean:.3f}",
