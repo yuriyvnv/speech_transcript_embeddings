@@ -9,6 +9,12 @@ __pycache__
 
 audio_text_model/
 audio_text_model_optimized/
+audio_text_model_optimized_unfreeze/
+audio_text_model_optimized_wo_alignment/
+audio_text_model_optimized_unfreeze_3_layers/
+audio_text_model_optimized_unfreeze_5_layers/
+audio_text_model_optimized_wt_word_alignment/
+
 common_voice_data/
 cv_results/
 .env
@@ -22,3 +28,5 @@ cv_results/
 
 teste1.mp3
 similarity_comparison.png
+/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze
+

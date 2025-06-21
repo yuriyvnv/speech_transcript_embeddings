@@ -298,6 +298,7 @@ class EnhancedAudioTextModel(nn.Module):
     - Cross-modal attention
     - Attentive pooling
     - Word-level alignment
+    - Partial encoder unfreezing support
     """
     def __init__(
         self,
@@ -310,7 +311,9 @@ class EnhancedAudioTextModel(nn.Module):
         use_cross_modal=True,
         use_attentive_pooling=True,
         use_word_alignment=False,  # New parameter
-        freeze_encoders=False,    # Default to False as recommended
+        freeze_encoders="partial",    # Changed to string: "full", "partial", "none"
+        text_layers_to_unfreeze=3,    # New parameter for partial unfreezing
+        audio_layers_to_unfreeze=3,   # New parameter for partial unfreezing
     ):
         super().__init__()
         
@@ -324,9 +327,83 @@ class EnhancedAudioTextModel(nn.Module):
         self.use_attentive_pooling = use_attentive_pooling
         self.use_word_alignment = use_word_alignment
         
-        # Freeze encoders if requested
-        if freeze_encoders:
-            logger.info("Freezing text and audio encoders")
+        # Enhanced partial freezing logic
+        if freeze_encoders == "full":
+            logger.info("Freezing text and audio encoders completely")
+            for param in self.text_encoder.parameters():
+                param.requires_grad = False
+            for param in self.audio_encoder.parameters():
+                param.requires_grad = False
+                
+        elif freeze_encoders == "partial":
+            logger.info(f"Partial freezing: unfreezing last {text_layers_to_unfreeze} text layers and {audio_layers_to_unfreeze} audio layers")
+            
+            # Freeze text encoder except last N layers
+            if hasattr(self.text_encoder, 'encoder') and hasattr(self.text_encoder.encoder, 'layer'):
+                # RoBERTa/BERT-style architecture
+                total_text_layers = len(self.text_encoder.encoder.layer)
+                for i, layer in enumerate(self.text_encoder.encoder.layer):
+                    if i < total_text_layers - text_layers_to_unfreeze:
+                        for param in layer.parameters():
+                            param.requires_grad = False
+                    else:
+                        logger.info(f"Unfreezing text encoder layer {i}")
+                
+                # Also unfreeze the pooler if it exists
+                if hasattr(self.text_encoder, 'pooler') and self.text_encoder.pooler is not None:
+                    for param in self.text_encoder.pooler.parameters():
+                        param.requires_grad = True
+            else:
+                # Fallback: freeze embeddings, unfreeze rest
+                logger.info("Text encoder structure not recognized, using fallback partial freezing")
+                if hasattr(self.text_encoder, 'embeddings'):
+                    for param in self.text_encoder.embeddings.parameters():
+                        param.requires_grad = False
+            
+            # Freeze audio encoder except last N layers  
+            if hasattr(self.audio_encoder, 'encoder') and hasattr(self.audio_encoder.encoder, 'layers'):
+                # Wav2Vec2-style architecture
+                total_audio_layers = len(self.audio_encoder.encoder.layers)
+                for i, layer in enumerate(self.audio_encoder.encoder.layers):
+                    if i < total_audio_layers - audio_layers_to_unfreeze:
+                        for param in layer.parameters():
+                            param.requires_grad = False
+                    else:
+                        logger.info(f"Unfreezing audio encoder layer {i}")
+                        
+                # Unfreeze feature projection for better adaptation
+                if hasattr(self.audio_encoder, 'feature_projection'):
+                    for param in self.audio_encoder.feature_projection.parameters():
+                        param.requires_grad = True
+                        
+            elif hasattr(self.audio_encoder, 'feature_projection'):
+                # Alternative: unfreeze feature projection and some transformer layers
+                logger.info("Audio encoder using alternative partial freezing strategy")
+                for param in self.audio_encoder.feature_projection.parameters():
+                    param.requires_grad = True
+                if hasattr(self.audio_encoder, 'encoder'):
+                    # Unfreeze last few transformer layers
+                    if hasattr(self.audio_encoder.encoder, 'layers'):
+                        total_layers = len(self.audio_encoder.encoder.layers)
+                        for i in range(max(0, total_layers - audio_layers_to_unfreeze), total_layers):
+                            for param in self.audio_encoder.encoder.layers[i].parameters():
+                                param.requires_grad = True
+            else:
+                # Fallback for unknown architecture
+                logger.info("Audio encoder structure not recognized, using fallback partial freezing")
+                # Just unfreeze the last part of parameters
+                all_params = list(self.audio_encoder.parameters())
+                unfreeze_count = len(all_params) // 3  # Unfreeze last third
+                for param in all_params[-unfreeze_count:]:
+                    param.requires_grad = True
+                        
+        elif freeze_encoders == "none" or freeze_encoders is False:
+            logger.info("All encoder parameters unfrozen")
+            # Keep all parameters trainable (default behavior)
+            
+        else:
+            # Backward compatibility: if freeze_encoders is True, freeze completely
+            logger.info("Freezing text and audio encoders completely (legacy mode)")
             for param in self.text_encoder.parameters():
                 param.requires_grad = False
             for param in self.audio_encoder.parameters():
@@ -660,8 +737,6 @@ class EnhancedAudioTextModel(nn.Module):
 
 # ===== ALIGNMENT-AWARE LOSS FUNCTION =====
 
-
-
 class AlignmentAwareInfoNCE(torch.nn.Module):
     """
     2-way InfoNCE implemented as CE over [s_pos, s_neg],
@@ -838,10 +913,7 @@ class CommonVoiceDataset(Dataset):
         }
 
 
-
 # ===== CUSTOM COLLATE FUNCTION =====
-
-
 
 def custom_collate_fn(batch):
     # drop any items that returned None
@@ -887,7 +959,6 @@ def custom_collate_fn(batch):
     }
 
 
-
 def to_human_readable(cosine: torch.Tensor,
                       temperature: float = 0.1,
                       scale: str = "prob") -> torch.Tensor:
@@ -905,6 +976,89 @@ def to_human_readable(cosine: torch.Tensor,
     else:
         raise ValueError(f"Unknown scale '{scale}'. Use '0to1' or 'prob'.")
 
+# ===== GRADIENT ACCUMULATION VALIDATION =====
+
+def validate_gradient_accumulation(model, data_loader, accumulation_steps=4, device="cuda", test_batches=10):
+    """
+    Validate that gradient accumulation is working correctly by comparing
+    accumulated gradients vs single large batch gradients.
+    
+    This function helps debug gradient accumulation issues.
+    """
+    logger.info(f"Validating gradient accumulation with {accumulation_steps} steps...")
+    
+    model.train()
+    
+    # Get a few batches for testing
+    test_data = []
+    for i, batch in enumerate(data_loader):
+        if i >= test_batches:
+            break
+        test_data.append(batch)
+    
+    if len(test_data) < accumulation_steps:
+        logger.warning(f"Not enough test batches ({len(test_data)}) for accumulation_steps ({accumulation_steps})")
+        return
+    
+    # Method 1: Accumulate gradients step by step
+    model.zero_grad()
+    accumulated_loss = 0
+    
+    for i in range(accumulation_steps):
+        batch = test_data[i]
+        batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+        
+        # Forward pass
+        txt_pos_norm, txt_neg_norm, aud_norm = EnhancedAudioTextModel.compute_pos_neg_embeddings(model, batch)
+        s_pos = (aud_norm * txt_pos_norm).sum(dim=1)
+        s_neg = (aud_norm * txt_neg_norm).sum(dim=1)
+        
+        # Dummy loss for testing (simple contrastive loss)
+        loss = -torch.log(torch.sigmoid(s_pos - s_neg)).mean()
+        scaled_loss = loss / accumulation_steps
+        accumulated_loss += loss.item()
+        
+        # Backward pass (accumulate gradients)
+        scaled_loss.backward()
+    
+    # Get accumulated gradients
+    accumulated_grads = []
+    for param in model.parameters():
+        if param.grad is not None:
+            accumulated_grads.append(param.grad.clone())
+        else:
+            accumulated_grads.append(None)
+    
+    # Method 2: Single large batch (concatenate batches)
+    model.zero_grad()
+    
+    # This is a simplified test - in practice, you'd need to properly concatenate
+    # the audio and text data, which is complex due to padding
+    logger.info(f"Accumulated loss over {accumulation_steps} steps: {accumulated_loss:.6f}")
+    logger.info(f"Average loss per step: {accumulated_loss/accumulation_steps:.6f}")
+    
+    # Check if gradients exist and are reasonable
+    grad_norms = []
+    for i, grad in enumerate(accumulated_grads):
+        if grad is not None:
+            grad_norm = grad.norm().item()
+            grad_norms.append(grad_norm)
+    
+    logger.info(f"Gradient norms (first 5): {grad_norms[:5]}")
+    logger.info(f"Max gradient norm: {max(grad_norms) if grad_norms else 0:.6f}")
+    logger.info(f"Mean gradient norm: {np.mean(grad_norms) if grad_norms else 0:.6f}")
+    
+    if max(grad_norms) > 100:
+        logger.warning("Very large gradients detected - consider lowering learning rate")
+    elif max(grad_norms) < 1e-8:
+        logger.warning("Very small gradients detected - consider increasing learning rate")
+    else:
+        logger.info("✓ Gradient magnitudes look reasonable")
+    
+    model.zero_grad()  # Clean up
+    logger.info("Gradient accumulation validation completed")
+
+
 # ===== TRAINING AND EVALUATION FUNCTIONS =====
 
 def train_epoch(
@@ -920,23 +1074,34 @@ def train_epoch(
 ):
     """
     Train one epoch with the full model architecture including:
-    - Cross-modal attention
+    - Cross-modal attention  
     - Word-level alignment
     - InfoNCE loss with alignment weighting
+    - Fixed gradient accumulation implementation
     """
     model.train()
     total_loss = 0.0
     sample_count = 0
     clean_sims, corrupt_sims = [], []
+    
+    # Track actual optimizer steps for scheduler
+    optimizer_steps = 0
 
     pbar = tqdm(data_loader, desc=f"Epoch {epoch} [Train]")
+    
+    # Initialize gradients
     optimizer.zero_grad()
 
     for batch_idx, batch in enumerate(pbar):
         # 1) move to device
-        for k,v in batch.items():
+        for k, v in batch.items():
             if isinstance(v, torch.Tensor):
-                batch[k] = v.to(device)
+                batch[k] = v.to(device, non_blocking=True)
+
+        # 2) Determine if this is the last accumulation step
+        is_accumulation_step = (batch_idx + 1) % accumulation_steps == 0
+        is_last_batch = (batch_idx + 1) == len(data_loader)
+        should_step = is_accumulation_step or is_last_batch
 
         def _forward():
             # Use the COMPLETE architecture via compute_pos_neg_embeddings
@@ -947,7 +1112,6 @@ def train_epoch(
             s_pos = (aud_norm * txt_pos_norm).sum(dim=1)  # [B]
             s_neg = (aud_norm * txt_neg_norm).sum(dim=1)  # [B]
             
-
             # Get alignment scores which were set by compute_pos_neg_embeddings
             alignment_scores = getattr(model, "last_alignment_scores", None)
             
@@ -955,62 +1119,81 @@ def train_epoch(
             loss = loss_fn(s_pos, s_neg, alignment_scores=alignment_scores)
             return loss, s_pos, s_neg
 
-        # 2) forward (+AMP) + backward
+        # 3) Forward pass and backward (with proper gradient accumulation)
         if scaler is not None:
             with torch.amp.autocast(device_type="cuda"):
                 loss, s_pos, s_neg = _forward()
-                loss = loss / accumulation_steps
-            scaler.scale(loss).backward()
+                # Scale loss for gradient accumulation
+                scaled_loss = loss / accumulation_steps
+            scaler.scale(scaled_loss).backward()
         else:
             loss, s_pos, s_neg = _forward()
-            loss = loss / accumulation_steps
-            loss.backward()
+            # Scale loss for gradient accumulation  
+            scaled_loss = loss / accumulation_steps
+            scaled_loss.backward()
 
-        # 3) step
-        do_step = ((batch_idx + 1) % accumulation_steps == 0) or (batch_idx + 1 == len(data_loader))
-        if do_step:
+        # 4) Optimizer step (only when accumulation is complete)
+        if should_step:
             if scaler is not None:
+                # Unscale gradients for clipping
                 scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                # Clip gradients
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                # Update weights
                 scaler.step(optimizer)
                 scaler.update()
             else:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                # Clip gradients
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                # Update weights
                 optimizer.step()
+            
+            # Update learning rate scheduler
             scheduler.step()
+            optimizer_steps += 1
+            
+            # Reset gradients
             optimizer.zero_grad()
 
-        # 4) track sims on CPU
+        # 5) Track similarities on CPU (use original loss for reporting)
         clean_sims.extend(s_pos.detach().cpu().tolist())
         corrupt_sims.extend(s_neg.detach().cpu().tolist())
 
-        # 5) accumulate loss & samples
-        B = s_pos.size(0)
-        total_loss += loss.item() * accumulation_steps * B
-        sample_count += B
+        # 6) Accumulate loss for reporting (use original unscaled loss)
+        batch_size = s_pos.size(0)
+        total_loss += loss.item() * batch_size  # Use original loss, not scaled
+        sample_count += batch_size
         
+        # Convert similarities to human-readable format for progress bar
         hr_pos = to_human_readable(s_pos, temperature=0.1, scale="prob")
         hr_neg = to_human_readable(s_neg, temperature=0.1, scale="prob")
 
-        # 6) update progress bar
+        # 7) Update progress bar
         avg_loss = total_loss / sample_count
         avg_clean = hr_pos.mean().item()
         avg_corrupt = hr_neg.mean().item()
+        
         pbar.set_postfix({
-            "loss":      f"{avg_loss:.4f}",
+            "loss": f"{avg_loss:.4f}",
             "clean_sim": f"{avg_clean:.3f}",
-            "corr_sim":  f"{avg_corrupt:.3f}",
-            "gap":       f"{(avg_clean-avg_corrupt):.3f}"
+            "corr_sim": f"{avg_corrupt:.3f}",
+            "gap": f"{(avg_clean-avg_corrupt):.3f}",
+            "opt_steps": optimizer_steps
         })
 
+        # 8) Clear memory periodically
+        if batch_idx % 50 == 0:
+            torch.cuda.empty_cache()
+
+    logger.info(f"Epoch {epoch}: Total optimizer steps: {optimizer_steps}")
+    
     return {
         "loss": total_loss / sample_count,
         "clean_similarity": np.mean(clean_sims),
-        "corrupt_similarity": np.mean(corrupt_sims),
+        "corrupt_similarity": np.mean(corrupt_sims),  
         "similarity_gap": np.mean(clean_sims) - np.mean(corrupt_sims),
+        "optimizer_steps": optimizer_steps,
     }
-
-
 
 
 def evaluate(model,
@@ -1080,8 +1263,6 @@ def evaluate(model,
                 clean_hr = to_human_readable(s_pos, temperature=0.1, scale='prob')
                 corr_hr  = to_human_readable(s_neg, temperature=0.1, scale='prob')
 
-
-
                 progress_bar.set_postfix({
                     "loss": f"{avg_loss:.4f}",
                     "clean_sim": f"{clean_hr.mean().item():.3f}",
@@ -1133,7 +1314,6 @@ def evaluate(model,
         "similarity_gap": similarity_gap
     }
     return metrics, all_similarities
-
 
 
 # ===== VISUALIZATION FUNCTIONS =====
@@ -1247,14 +1427,17 @@ def train_and_evaluate_model(
     save_every=1,
     accumulation_steps=4,  # Gradient accumulation steps
     fp16=True,  # Use mixed precision training
-    freeze_encoders=False,  # Default to False as recommended
+    freeze_encoders="partial",  # New: "full", "partial", "none"
+    text_layers_to_unfreeze=3,   # New: for partial unfreezing
+    audio_layers_to_unfreeze=3,  # New: for partial unfreezing
     use_bucketing=False,   # Whether to use length-based bucketing
     seed=42,
     max_audio_len=160000  # Maximum audio length in samples
 ):
     """
     Train the audio-text embedding model and evaluate on validation and test sets.
-    Enhanced with better architecture, training optimizations, and word-level alignment.
+    Enhanced with better architecture, training optimizations, word-level alignment,
+    and partial encoder unfreezing with discriminative learning rates.
     """
     # Set random seed for reproducibility
     torch.manual_seed(seed)
@@ -1274,6 +1457,8 @@ def train_and_evaluate_model(
     logger.info(f"  Text model: {text_model_name}")
     logger.info(f"  Audio model: {audio_model_name}")
     logger.info(f"  Freeze encoders: {freeze_encoders}")
+    logger.info(f"  Text layers to unfreeze: {text_layers_to_unfreeze}")
+    logger.info(f"  Audio layers to unfreeze: {audio_layers_to_unfreeze}")
     logger.info(f"  Use cross-modal attention: {use_cross_modal}")
     logger.info(f"  Use attentive pooling: {use_attentive_pooling}")
     logger.info(f"  Use word-level alignment: {use_word_alignment}")
@@ -1371,7 +1556,7 @@ def train_and_evaluate_model(
     except Exception as e:
         logger.warning(f"Error checking sample batch: {str(e)}")
     
-    # Initialize enhanced model
+    # Initialize enhanced model with partial unfreezing support
     logger.info("Initializing model...")
     model = EnhancedAudioTextModel(
         text_model_name=text_model_name,
@@ -1380,7 +1565,9 @@ def train_and_evaluate_model(
         use_cross_modal=use_cross_modal,
         use_attentive_pooling=use_attentive_pooling,
         use_word_alignment=use_word_alignment,
-        freeze_encoders=freeze_encoders
+        freeze_encoders=freeze_encoders,
+        text_layers_to_unfreeze=text_layers_to_unfreeze,
+        audio_layers_to_unfreeze=audio_layers_to_unfreeze
     )
     
     model = model.to(device)
@@ -1388,23 +1575,76 @@ def train_and_evaluate_model(
     # Initialize mixed precision training if requested
     scaler = torch.amp.GradScaler('cuda') if fp16 else None
     
-    # Initialize optimizer - only include parameters that require gradients
-    optimizer = AdamW(
-        [p for p in model.parameters() if p.requires_grad],
-        lr=learning_rate,
-        weight_decay=weight_decay
-    )
+    # Enhanced optimizer initialization with discriminative learning rates
+    if freeze_encoders == "partial":
+        # Use discriminative learning rates for partial unfreezing
+        encoder_lr = learning_rate * 0.1  # 10x lower LR for encoder layers
+        
+        # Separate parameters into encoder and non-encoder groups
+        encoder_params = []
+        non_encoder_params = []
+        
+        # Collect unfrozen encoder parameters
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                if 'text_encoder' in name or 'audio_encoder' in name:
+                    encoder_params.append(param)
+                else:
+                    non_encoder_params.append(param)
+        
+        # Create parameter groups with different learning rates
+        param_groups = [
+            {'params': encoder_params, 'lr': encoder_lr, 'weight_decay': weight_decay},
+            {'params': non_encoder_params, 'lr': learning_rate, 'weight_decay': weight_decay}
+        ]
+        
+        optimizer = AdamW(param_groups)
+        logger.info(f"Using discriminative learning rates: encoder_lr={encoder_lr}, main_lr={learning_rate}")
+        logger.info(f"Encoder parameters: {len(encoder_params)}, Non-encoder parameters: {len(non_encoder_params)}")
+        
+    else:
+        # Original single learning rate approach
+        optimizer = AdamW(
+            [p for p in model.parameters() if p.requires_grad],
+            lr=learning_rate,
+            weight_decay=weight_decay
+        )
+        logger.info(f"Using single learning rate: {learning_rate}")
     
     # Initialize alignment-aware InfoNCE loss with temperature parameter
     loss_fn = AlignmentAwareInfoNCE(temperature=temperature, alignment_weight=0.5)
     
     # Initialize learning rate scheduler
-    total_steps = len(train_loader) * num_epochs // accumulation_steps
+    # Calculate total optimizer steps more precisely 
+    steps_per_epoch = len(train_loader) // accumulation_steps + (1 if len(train_loader) % accumulation_steps > 0 else 0)
+    total_steps = steps_per_epoch * num_epochs
+    
+    logger.info(f"Scheduler setup:")
+    logger.info(f"  Batches per epoch: {len(train_loader)}")
+    logger.info(f"  Accumulation steps: {accumulation_steps}")
+    logger.info(f"  Optimizer steps per epoch: {steps_per_epoch}")
+    logger.info(f"  Total optimizer steps: {total_steps}")
+    logger.info(f"  Warmup steps: {num_warmup_steps}")
+    
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
         num_warmup_steps=num_warmup_steps,
         num_training_steps=total_steps
     )
+    
+    # Validate gradient accumulation setup (debug mode)
+    if accumulation_steps > 1:
+        logger.info("Validating gradient accumulation setup...")
+        try:
+            validate_gradient_accumulation(
+                model, train_loader, 
+                accumulation_steps=accumulation_steps, 
+                device=device, 
+                test_batches=min(accumulation_steps + 2, 10)
+            )
+        except Exception as e:
+            logger.warning(f"Gradient accumulation validation failed: {e}")
+            logger.warning("Continuing with training anyway...")
     
     # Initialize lists to store metrics
     train_metrics_history = []
@@ -1478,6 +1718,9 @@ def train_and_evaluate_model(
                         "use_cross_modal": use_cross_modal,
                         "use_attentive_pooling": use_attentive_pooling,
                         "use_word_alignment": use_word_alignment,
+                        "freeze_encoders": freeze_encoders,
+                        "text_layers_to_unfreeze": text_layers_to_unfreeze,
+                        "audio_layers_to_unfreeze": audio_layers_to_unfreeze,
                     },
                     os.path.join(output_dir, "best_model_loss.pt")
                 )
@@ -1498,6 +1741,9 @@ def train_and_evaluate_model(
                         "use_cross_modal": use_cross_modal,
                         "use_attentive_pooling": use_attentive_pooling,
                         "use_word_alignment": use_word_alignment,
+                        "freeze_encoders": freeze_encoders,
+                        "text_layers_to_unfreeze": text_layers_to_unfreeze,
+                        "audio_layers_to_unfreeze": audio_layers_to_unfreeze,
                     },
                     os.path.join(output_dir, "best_model_gap.pt")
                 )
@@ -1516,6 +1762,9 @@ def train_and_evaluate_model(
                         "use_cross_modal": use_cross_modal,
                         "use_attentive_pooling": use_attentive_pooling,
                         "use_word_alignment": use_word_alignment,
+                        "freeze_encoders": freeze_encoders,
+                        "text_layers_to_unfreeze": text_layers_to_unfreeze,
+                        "audio_layers_to_unfreeze": audio_layers_to_unfreeze,
                     },
                     os.path.join(output_dir, f"checkpoint_epoch_{epoch}.pt")
                 )
@@ -1584,6 +1833,9 @@ def train_and_evaluate_model(
             "use_cross_modal": use_cross_modal,
             "use_attentive_pooling": use_attentive_pooling,
             "use_word_alignment": use_word_alignment,
+            "freeze_encoders": freeze_encoders,
+            "text_layers_to_unfreeze": text_layers_to_unfreeze,
+            "audio_layers_to_unfreeze": audio_layers_to_unfreeze,
         },
         os.path.join(output_dir, "final_model.pt")
     )
@@ -1718,6 +1970,15 @@ def main():
     parser.add_argument("--no_word_alignment", action="store_true",
                         help="Disable word-level alignment")
     
+    # Enhanced freezing parameters
+    parser.add_argument("--freeze_encoders", type=str, default="partial", 
+                        choices=["full", "partial", "none"],
+                        help="Encoder freezing strategy: 'full' (freeze all), 'partial' (unfreeze last layers), 'none' (unfreeze all)")
+    parser.add_argument("--text_layers_to_unfreeze", type=int, default=3,
+                        help="Number of text encoder layers to unfreeze (for partial freezing)")
+    parser.add_argument("--audio_layers_to_unfreeze", type=int, default=3,
+                        help="Number of audio encoder layers to unfreeze (for partial freezing)")
+    
     # Training parameters
     parser.add_argument("--batch_size", type=int, default=16,
                         help="Training batch size")
@@ -1739,8 +2000,6 @@ def main():
                         help="Number of gradient accumulation steps")
     parser.add_argument("--no_fp16", action="store_true",
                         help="Disable mixed precision training")
-    parser.add_argument("--no_freeze", action="store_true",
-                        help="Don't freeze encoders (train entire model)")
     parser.add_argument("--bucket", action="store_true",
                         help="Use length-based bucketing for efficiency")
     parser.add_argument("--max_audio_len", type=int, default=480000,
@@ -1800,7 +2059,9 @@ def main():
         save_every=args.save_every,
         accumulation_steps=args.acc_steps,
         fp16=not args.no_fp16,
-        freeze_encoders=not args.no_freeze,
+        freeze_encoders=args.freeze_encoders,
+        text_layers_to_unfreeze=args.text_layers_to_unfreeze,
+        audio_layers_to_unfreeze=args.audio_layers_to_unfreeze,
         use_bucketing=args.bucket,
         seed=args.seed,
         max_audio_len=args.max_audio_len

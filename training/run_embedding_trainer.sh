@@ -8,15 +8,15 @@ set -e
 
 # Default values
 DATA_DIR="/home/yperezhohin/speech_transcript_embeddings/common_voice_data"
-OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized"
+OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_wo_alignment"
 TEXT_MODEL="sentence-transformers/all-roberta-large-v1"
 AUDIO_MODEL="facebook/w2v-bert-2.0"
 PROJECTION_DIM=1024
 BATCH_SIZE=32 # 64 with accumulation steps
-NUM_EPOCHS=10
+NUM_EPOCHS=20
 LEARNING_RATE=2e-5
 WEIGHT_DECAY=0.01
-TEMPERATURE=0.07
+TEMPERATURE=0.1
 MAX_TEXT_LENGTH=256
 WARMUP_STEPS=2000
 SAVE_EVERY=1
