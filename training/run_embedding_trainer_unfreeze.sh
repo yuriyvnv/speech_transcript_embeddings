@@ -8,26 +8,26 @@ set -e
 
 # Default values
 DATA_DIR="/home/yperezhohin/speech_transcript_embeddings/common_voice_data"
-OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze_3_layers"
+OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze_5_layers_wt_alignment"
 TEXT_MODEL="sentence-transformers/all-roberta-large-v1"
 AUDIO_MODEL="facebook/w2v-bert-2.0"
 PROJECTION_DIM=1024
 BATCH_SIZE=8 # 64 with accumulation steps
-NUM_EPOCHS=10
-LEARNING_RATE=1e-5
+NUM_EPOCHS=30
+LEARNING_RATE=3e-5
 WEIGHT_DECAY=0.01
 TEMPERATURE=0.1
 MAX_TEXT_LENGTH=256
 WARMUP_STEPS=500
-SAVE_EVERY=1
+SAVE_EVERY=15
 ACC_STEPS=16
 MAX_AUDIO_LEN=480000
 SEED=42
 DEBUG=false
 FP16_FLAG="--no_fp16"
 FREEZE_STRATEGY="partial"  # New: default to partial freezing
-TEXT_LAYERS_TO_UNFREEZE=3  # New: default unfreezing 3 text layers
-AUDIO_LAYERS_TO_UNFREEZE=3 # New: default unfreezing 3 audio layers
+TEXT_LAYERS_TO_UNFREEZE=5  # New: default unfreezing 3 text layers
+AUDIO_LAYERS_TO_UNFREEZE=5 # New: default unfreezing 3 audio layers
 DEBUG_FLAG=""
 BUCKET_FLAG=""
 VALIDATE_GRADIENTS_FLAG=""

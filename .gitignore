@@ -30,3 +30,4 @@ teste1.mp3
 similarity_comparison.png
 /home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze
 
+audio_text_model_optimized_unfreeze_5_layers_wt_alignment/final_model.pt

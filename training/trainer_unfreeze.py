@@ -310,10 +310,10 @@ class EnhancedAudioTextModel(nn.Module):
         dropout=0.1,
         use_cross_modal=True,
         use_attentive_pooling=True,
-        use_word_alignment=False,  # New parameter
+        use_word_alignment=True,  # New parameter
         freeze_encoders="partial",    # Changed to string: "full", "partial", "none"
-        text_layers_to_unfreeze=3,    # New parameter for partial unfreezing
-        audio_layers_to_unfreeze=3,   # New parameter for partial unfreezing
+        text_layers_to_unfreeze=5,    # New parameter for partial unfreezing
+        audio_layers_to_unfreeze=5,   # New parameter for partial unfreezing
     ):
         super().__init__()
         
@@ -1423,13 +1423,13 @@ def train_and_evaluate_model(
     projection_dim=768,
     use_cross_modal=True,
     use_attentive_pooling=True,
-    use_word_alignment=False,  # New default: use word-level alignment
+    use_word_alignment=True,  # New default: use word-level alignment
     save_every=1,
     accumulation_steps=4,  # Gradient accumulation steps
     fp16=True,  # Use mixed precision training
     freeze_encoders="partial",  # New: "full", "partial", "none"
-    text_layers_to_unfreeze=3,   # New: for partial unfreezing
-    audio_layers_to_unfreeze=3,  # New: for partial unfreezing
+    text_layers_to_unfreeze=5,   # New: for partial unfreezing
+    audio_layers_to_unfreeze=5,  # New: for partial unfreezing
     use_bucketing=False,   # Whether to use length-based bucketing
     seed=42,
     max_audio_len=160000  # Maximum audio length in samples
@@ -2055,7 +2055,7 @@ def main():
         projection_dim=args.projection_dim,
         use_cross_modal=not args.no_cross_modal,
         use_attentive_pooling=not args.no_attentive_pooling,
-        use_word_alignment=False,
+        use_word_alignment=True,
         save_every=args.save_every,
         accumulation_steps=args.acc_steps,
         fp16=not args.no_fp16,
