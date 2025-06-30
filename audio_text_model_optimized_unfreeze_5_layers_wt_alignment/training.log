@@ -608,3 +608,441 @@
 2025-06-28 01:41:11,531 - WARNING - Best gap model not found
 2025-06-28 01:41:11,532 - INFO - Evaluation completed!
 2025-06-28 01:41:11,561 - INFO - All tasks completed!
+2025-06-28 12:39:46,406 - INFO - Training with parameters:
+2025-06-28 12:39:46,406 - INFO -   Text model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+2025-06-28 12:39:46,406 - INFO -   Audio model: facebook/w2v-bert-2.0
+2025-06-28 12:39:46,406 - INFO -   Freeze encoders: partial
+2025-06-28 12:39:46,406 - INFO -   Text layers to unfreeze: 5
+2025-06-28 12:39:46,406 - INFO -   Audio layers to unfreeze: 5
+2025-06-28 12:39:46,406 - INFO -   Use cross-modal attention: True
+2025-06-28 12:39:46,406 - INFO -   Use attentive pooling: True
+2025-06-28 12:39:46,406 - INFO -   Use word-level alignment: True
+2025-06-28 12:39:46,406 - INFO -   Batch size: 8
+2025-06-28 12:39:46,406 - INFO -   Gradient accumulation steps: 16
+2025-06-28 12:39:46,406 - INFO -   Effective batch size: 128
+2025-06-28 12:39:46,406 - INFO -   Mixed precision training: False
+2025-06-28 12:39:46,406 - INFO -   Learning rate: 3e-05
+2025-06-28 12:39:46,406 - INFO -   Temperature: 0.1
+2025-06-28 12:39:46,407 - INFO -   Projection dimension: 768
+2025-06-28 12:39:46,407 - INFO -   Training samples: 21968
+2025-06-28 12:39:46,407 - INFO -   Validation samples: 9464
+2025-06-28 12:39:46,407 - INFO -   Test samples: 9467
+2025-06-28 12:39:46,407 - INFO -   Max audio length: 480000 samples (30.00 seconds at 16kHz)
+2025-06-28 12:39:46,407 - INFO - Loading tokenizer and feature extractor...
+2025-06-28 12:39:51,695 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-28 12:39:51,695 - INFO - Creating datasets...
+2025-06-28 12:39:51,697 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-28 12:39:51,698 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-28 12:39:51,699 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-28 12:39:51,699 - INFO - Creating data loaders...
+2025-06-28 12:39:51,701 - INFO - Checking a sample batch...
+2025-06-28 12:39:57,937 - INFO -   input_ids_pos: torch.Size([8, 256])
+2025-06-28 12:39:57,938 - INFO -   attention_mask_pos: torch.Size([8, 256])
+2025-06-28 12:39:57,938 - INFO -   input_ids_neg: torch.Size([8, 256])
+2025-06-28 12:39:57,938 - INFO -   attention_mask_neg: torch.Size([8, 256])
+2025-06-28 12:39:57,939 - INFO -   input_values: torch.Size([8, 328, 160])
+2025-06-28 12:39:57,939 - INFO -   attention_mask_audio: torch.Size([8, 328])
+2025-06-28 12:39:57,939 - INFO -   is_corrupted: torch.Size([8])
+2025-06-28 12:39:57,940 - INFO - Initializing model...
+2025-06-28 12:40:11,357 - INFO - Partial freezing: unfreezing last 5 text layers and 5 audio layers
+2025-06-28 12:40:11,358 - INFO - Unfreezing text encoder layer 7
+2025-06-28 12:40:11,358 - INFO - Unfreezing text encoder layer 8
+2025-06-28 12:40:11,358 - INFO - Unfreezing text encoder layer 9
+2025-06-28 12:40:11,358 - INFO - Unfreezing text encoder layer 10
+2025-06-28 12:40:11,358 - INFO - Unfreezing text encoder layer 11
+2025-06-28 12:40:11,360 - INFO - Unfreezing audio encoder layer 19
+2025-06-28 12:40:11,360 - INFO - Unfreezing audio encoder layer 20
+2025-06-28 12:40:11,360 - INFO - Unfreezing audio encoder layer 21
+2025-06-28 12:40:11,360 - INFO - Unfreezing audio encoder layer 22
+2025-06-28 12:40:11,360 - INFO - Unfreezing audio encoder layer 23
+2025-06-28 12:40:11,605 - INFO - Model initialized with 366,957,444 trainable parameters out of 875,998,020 total
+2025-06-28 12:40:12,661 - INFO - Using discriminative learning rates: encoder_lr=3e-06, main_lr=3e-05
+2025-06-28 12:40:12,661 - INFO - Encoder parameters: 252, Non-encoder parameters: 62
+2025-06-28 12:40:12,661 - INFO - Scheduler setup:
+2025-06-28 12:40:12,662 - INFO -   Batches per epoch: 2746
+2025-06-28 12:40:12,662 - INFO -   Accumulation steps: 16
+2025-06-28 12:40:12,662 - INFO -   Optimizer steps per epoch: 172
+2025-06-28 12:40:12,662 - INFO -   Total optimizer steps: 5160
+2025-06-28 12:40:12,662 - INFO -   Warmup steps: 500
+2025-06-28 12:40:12,662 - INFO - Validating gradient accumulation setup...
+2025-06-28 12:40:12,662 - INFO - Validating gradient accumulation with 16 steps...
+2025-06-28 12:40:22,271 - WARNING - Not enough test batches (10) for accumulation_steps (16)
+2025-06-28 12:40:22,272 - INFO - Starting training for 30 epochs
+2025-06-28 12:40:37,971 - ERROR - Error in epoch 1: mat1 and mat2 shapes cannot be multiplied (2048x768 and 1024x1536)
+2025-06-30 10:50:23,081 - INFO - Training with parameters:
+2025-06-30 10:50:23,081 - INFO -   Text model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+2025-06-30 10:50:23,081 - INFO -   Audio model: facebook/w2v-bert-2.0
+2025-06-30 10:50:23,081 - INFO -   Freeze encoders: partial
+2025-06-30 10:50:23,081 - INFO -   Text layers to unfreeze: 5
+2025-06-30 10:50:23,081 - INFO -   Audio layers to unfreeze: 5
+2025-06-30 10:50:23,081 - INFO -   Use cross-modal attention: True
+2025-06-30 10:50:23,081 - INFO -   Use attentive pooling: True
+2025-06-30 10:50:23,081 - INFO -   Use word-level alignment: True
+2025-06-30 10:50:23,081 - INFO -   Batch size: 8
+2025-06-30 10:50:23,081 - INFO -   Gradient accumulation steps: 16
+2025-06-30 10:50:23,082 - INFO -   Effective batch size: 128
+2025-06-30 10:50:23,082 - INFO -   Mixed precision training: False
+2025-06-30 10:50:23,082 - INFO -   Learning rate: 3e-05
+2025-06-30 10:50:23,082 - INFO -   Temperature: 0.1
+2025-06-30 10:50:23,082 - INFO -   Projection dimension: 768
+2025-06-30 10:50:23,082 - INFO -   Training samples: 21968
+2025-06-30 10:50:23,082 - INFO -   Validation samples: 9464
+2025-06-30 10:50:23,082 - INFO -   Test samples: 9467
+2025-06-30 10:50:23,082 - INFO -   Max audio length: 480000 samples (30.00 seconds at 16kHz)
+2025-06-30 10:50:23,082 - INFO - Loading tokenizer and feature extractor...
+2025-06-30 10:50:25,162 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:50:25,162 - INFO - Creating datasets...
+2025-06-30 10:50:25,164 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:50:25,166 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:50:25,167 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:50:25,167 - INFO - Creating data loaders...
+2025-06-30 10:50:25,168 - INFO - Checking a sample batch...
+2025-06-30 10:50:31,555 - INFO -   input_ids_pos: torch.Size([8, 256])
+2025-06-30 10:50:31,556 - INFO -   attention_mask_pos: torch.Size([8, 256])
+2025-06-30 10:50:31,564 - INFO -   input_ids_neg: torch.Size([8, 256])
+2025-06-30 10:50:31,564 - INFO -   attention_mask_neg: torch.Size([8, 256])
+2025-06-30 10:50:31,565 - INFO -   input_values: torch.Size([8, 328, 160])
+2025-06-30 10:50:31,565 - INFO -   attention_mask_audio: torch.Size([8, 328])
+2025-06-30 10:50:31,565 - INFO -   is_corrupted: torch.Size([8])
+2025-06-30 10:50:31,565 - INFO - Initializing model...
+2025-06-30 10:50:32,935 - INFO - Text encoder hidden dim: 768
+2025-06-30 10:50:32,936 - INFO - Audio encoder hidden dim: 1024
+2025-06-30 10:50:32,936 - INFO - Partial freezing: unfreezing last 5 text layers and 5 audio layers
+2025-06-30 10:50:32,936 - INFO - Unfreezing text encoder layer 7
+2025-06-30 10:50:32,936 - INFO - Unfreezing text encoder layer 8
+2025-06-30 10:50:32,936 - INFO - Unfreezing text encoder layer 9
+2025-06-30 10:50:32,936 - INFO - Unfreezing text encoder layer 10
+2025-06-30 10:50:32,937 - INFO - Unfreezing text encoder layer 11
+2025-06-30 10:50:32,938 - INFO - Unfreezing audio encoder layer 19
+2025-06-30 10:50:32,938 - INFO - Unfreezing audio encoder layer 20
+2025-06-30 10:50:32,938 - INFO - Unfreezing audio encoder layer 21
+2025-06-30 10:50:32,938 - INFO - Unfreezing audio encoder layer 22
+2025-06-30 10:50:32,938 - INFO - Unfreezing audio encoder layer 23
+2025-06-30 10:50:33,186 - INFO - Model initialized with 368,335,236 trainable parameters out of 877,375,812 total
+2025-06-30 10:50:34,657 - INFO - Using discriminative learning rates: encoder_lr=3e-06, main_lr=3e-05
+2025-06-30 10:50:34,657 - INFO - Encoder parameters: 252, Non-encoder parameters: 66
+2025-06-30 10:50:34,658 - INFO - Scheduler setup:
+2025-06-30 10:50:34,658 - INFO -   Batches per epoch: 2746
+2025-06-30 10:50:34,658 - INFO -   Accumulation steps: 16
+2025-06-30 10:50:34,658 - INFO -   Optimizer steps per epoch: 172
+2025-06-30 10:50:34,658 - INFO -   Total optimizer steps: 5160
+2025-06-30 10:50:34,658 - INFO -   Warmup steps: 500
+2025-06-30 10:50:34,658 - INFO - Validating gradient accumulation setup...
+2025-06-30 10:50:34,658 - INFO - Validating gradient accumulation with 16 steps...
+2025-06-30 10:50:46,249 - WARNING - Not enough test batches (10) for accumulation_steps (16)
+2025-06-30 10:50:46,251 - INFO - Starting training for 30 epochs
+2025-06-30 10:51:00,796 - ERROR - Error in epoch 1: mat1 and mat2 shapes cannot be multiplied (2280x1024 and 768x768)
+2025-06-30 10:53:04,129 - INFO - Training with parameters:
+2025-06-30 10:53:04,129 - INFO -   Text model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+2025-06-30 10:53:04,129 - INFO -   Audio model: facebook/w2v-bert-2.0
+2025-06-30 10:53:04,129 - INFO -   Freeze encoders: partial
+2025-06-30 10:53:04,129 - INFO -   Text layers to unfreeze: 5
+2025-06-30 10:53:04,129 - INFO -   Audio layers to unfreeze: 5
+2025-06-30 10:53:04,129 - INFO -   Use cross-modal attention: True
+2025-06-30 10:53:04,129 - INFO -   Use attentive pooling: True
+2025-06-30 10:53:04,129 - INFO -   Use word-level alignment: True
+2025-06-30 10:53:04,129 - INFO -   Batch size: 8
+2025-06-30 10:53:04,129 - INFO -   Gradient accumulation steps: 16
+2025-06-30 10:53:04,129 - INFO -   Effective batch size: 128
+2025-06-30 10:53:04,129 - INFO -   Mixed precision training: False
+2025-06-30 10:53:04,130 - INFO -   Learning rate: 3e-05
+2025-06-30 10:53:04,130 - INFO -   Temperature: 0.1
+2025-06-30 10:53:04,130 - INFO -   Projection dimension: 768
+2025-06-30 10:53:04,130 - INFO -   Training samples: 21968
+2025-06-30 10:53:04,130 - INFO -   Validation samples: 9464
+2025-06-30 10:53:04,130 - INFO -   Test samples: 9467
+2025-06-30 10:53:04,130 - INFO -   Max audio length: 480000 samples (30.00 seconds at 16kHz)
+2025-06-30 10:53:04,130 - INFO - Loading tokenizer and feature extractor...
+2025-06-30 10:53:06,482 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:53:06,482 - INFO - Creating datasets...
+2025-06-30 10:53:06,484 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:53:06,486 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:53:06,488 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 10:53:06,488 - INFO - Creating data loaders...
+2025-06-30 10:53:06,489 - INFO - Checking a sample batch...
+2025-06-30 10:53:14,130 - INFO -   input_ids_pos: torch.Size([8, 256])
+2025-06-30 10:53:14,130 - INFO -   attention_mask_pos: torch.Size([8, 256])
+2025-06-30 10:53:14,131 - INFO -   input_ids_neg: torch.Size([8, 256])
+2025-06-30 10:53:14,131 - INFO -   attention_mask_neg: torch.Size([8, 256])
+2025-06-30 10:53:14,131 - INFO -   input_values: torch.Size([8, 328, 160])
+2025-06-30 10:53:14,131 - INFO -   attention_mask_audio: torch.Size([8, 328])
+2025-06-30 10:53:14,131 - INFO -   is_corrupted: torch.Size([8])
+2025-06-30 10:53:14,132 - INFO - Initializing model...
+2025-06-30 10:53:15,659 - INFO - Text encoder hidden dim: 768
+2025-06-30 10:53:15,660 - INFO - Audio encoder hidden dim: 1024
+2025-06-30 10:53:15,660 - INFO - Partial freezing: unfreezing last 5 text layers and 5 audio layers
+2025-06-30 10:53:15,660 - INFO - Unfreezing text encoder layer 7
+2025-06-30 10:53:15,660 - INFO - Unfreezing text encoder layer 8
+2025-06-30 10:53:15,661 - INFO - Unfreezing text encoder layer 9
+2025-06-30 10:53:15,661 - INFO - Unfreezing text encoder layer 10
+2025-06-30 10:53:15,661 - INFO - Unfreezing text encoder layer 11
+2025-06-30 10:53:15,662 - INFO - Unfreezing audio encoder layer 19
+2025-06-30 10:53:15,663 - INFO - Unfreezing audio encoder layer 20
+2025-06-30 10:53:15,663 - INFO - Unfreezing audio encoder layer 21
+2025-06-30 10:53:15,663 - INFO - Unfreezing audio encoder layer 22
+2025-06-30 10:53:15,663 - INFO - Unfreezing audio encoder layer 23
+2025-06-30 10:53:15,901 - INFO - Model initialized with 368,335,236 trainable parameters out of 877,375,812 total
+2025-06-30 10:53:17,093 - INFO - Using discriminative learning rates: encoder_lr=3e-06, main_lr=3e-05
+2025-06-30 10:53:17,094 - INFO - Encoder parameters: 252, Non-encoder parameters: 66
+2025-06-30 10:53:17,094 - INFO - Scheduler setup:
+2025-06-30 10:53:17,094 - INFO -   Batches per epoch: 2746
+2025-06-30 10:53:17,094 - INFO -   Accumulation steps: 16
+2025-06-30 10:53:17,095 - INFO -   Optimizer steps per epoch: 172
+2025-06-30 10:53:17,095 - INFO -   Total optimizer steps: 5160
+2025-06-30 10:53:17,095 - INFO -   Warmup steps: 500
+2025-06-30 10:53:17,095 - INFO - Validating gradient accumulation setup...
+2025-06-30 10:53:17,095 - INFO - Validating gradient accumulation with 16 steps...
+2025-06-30 10:53:26,263 - WARNING - Not enough test batches (10) for accumulation_steps (16)
+2025-06-30 10:53:26,271 - INFO - Starting training for 30 epochs
+2025-06-30 10:53:40,468 - ERROR - Error in epoch 1: Tensors must have same number of dimensions: got 2 and 3
+2025-06-30 21:08:45,839 - INFO - Training with parameters:
+2025-06-30 21:08:45,839 - INFO -   Text model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+2025-06-30 21:08:45,839 - INFO -   Audio model: facebook/w2v-bert-2.0
+2025-06-30 21:08:45,839 - INFO -   Freeze encoders: partial
+2025-06-30 21:08:45,839 - INFO -   Text layers to unfreeze: 5
+2025-06-30 21:08:45,839 - INFO -   Audio layers to unfreeze: 5
+2025-06-30 21:08:45,839 - INFO -   Use cross-modal attention: True
+2025-06-30 21:08:45,839 - INFO -   Use attentive pooling: True
+2025-06-30 21:08:45,839 - INFO -   Use word-level alignment: True
+2025-06-30 21:08:45,839 - INFO -   Batch size: 8
+2025-06-30 21:08:45,840 - INFO -   Gradient accumulation steps: 16
+2025-06-30 21:08:45,840 - INFO -   Effective batch size: 128
+2025-06-30 21:08:45,840 - INFO -   Mixed precision training: False
+2025-06-30 21:08:45,840 - INFO -   Learning rate: 3e-05
+2025-06-30 21:08:45,840 - INFO -   Temperature: 0.1
+2025-06-30 21:08:45,840 - INFO -   Projection dimension: 768
+2025-06-30 21:08:45,840 - INFO -   Training samples: 21968
+2025-06-30 21:08:45,840 - INFO -   Validation samples: 9464
+2025-06-30 21:08:45,840 - INFO -   Test samples: 9467
+2025-06-30 21:08:45,840 - INFO -   Max audio length: 480000 samples (30.00 seconds at 16kHz)
+2025-06-30 21:08:45,840 - INFO - Loading tokenizer and feature extractor...
+2025-06-30 21:08:48,003 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:08:48,004 - INFO - Creating datasets...
+2025-06-30 21:08:48,005 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:08:48,006 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:08:48,008 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:08:48,008 - INFO - Creating data loaders...
+2025-06-30 21:08:48,009 - INFO - Checking a sample batch...
+2025-06-30 21:08:54,901 - INFO -   input_ids_pos: torch.Size([8, 256])
+2025-06-30 21:08:54,902 - INFO -   attention_mask_pos: torch.Size([8, 256])
+2025-06-30 21:08:54,902 - INFO -   input_ids_neg: torch.Size([8, 256])
+2025-06-30 21:08:54,902 - INFO -   attention_mask_neg: torch.Size([8, 256])
+2025-06-30 21:08:54,903 - INFO -   input_values: torch.Size([8, 328, 160])
+2025-06-30 21:08:54,903 - INFO -   attention_mask_audio: torch.Size([8, 328])
+2025-06-30 21:08:54,903 - INFO -   is_corrupted: torch.Size([8])
+2025-06-30 21:08:54,903 - INFO - Initializing model...
+2025-06-30 21:08:56,180 - INFO - Text encoder hidden dim: 768
+2025-06-30 21:08:56,180 - INFO - Audio encoder hidden dim: 1024
+2025-06-30 21:08:56,181 - INFO - Partial freezing: unfreezing last 5 text layers and 5 audio layers
+2025-06-30 21:08:56,182 - INFO - Unfreezing text encoder layer 7
+2025-06-30 21:08:56,182 - INFO - Unfreezing text encoder layer 8
+2025-06-30 21:08:56,182 - INFO - Unfreezing text encoder layer 9
+2025-06-30 21:08:56,182 - INFO - Unfreezing text encoder layer 10
+2025-06-30 21:08:56,182 - INFO - Unfreezing text encoder layer 11
+2025-06-30 21:08:56,186 - INFO - Unfreezing audio encoder layer 19
+2025-06-30 21:08:56,186 - INFO - Unfreezing audio encoder layer 20
+2025-06-30 21:08:56,186 - INFO - Unfreezing audio encoder layer 21
+2025-06-30 21:08:56,186 - INFO - Unfreezing audio encoder layer 22
+2025-06-30 21:08:56,186 - INFO - Unfreezing audio encoder layer 23
+2025-06-30 21:08:56,459 - INFO - Model initialized with 368,335,236 trainable parameters out of 877,375,812 total
+2025-06-30 21:08:57,613 - INFO - Using discriminative learning rates: encoder_lr=3e-06, main_lr=3e-05
+2025-06-30 21:08:57,613 - INFO - Encoder parameters: 252, Non-encoder parameters: 66
+2025-06-30 21:08:57,613 - INFO - Scheduler setup:
+2025-06-30 21:08:57,613 - INFO -   Batches per epoch: 2746
+2025-06-30 21:08:57,613 - INFO -   Accumulation steps: 16
+2025-06-30 21:08:57,613 - INFO -   Optimizer steps per epoch: 172
+2025-06-30 21:08:57,614 - INFO -   Total optimizer steps: 5160
+2025-06-30 21:08:57,614 - INFO -   Warmup steps: 500
+2025-06-30 21:08:57,614 - INFO - Validating gradient accumulation setup...
+2025-06-30 21:08:57,614 - INFO - Validating gradient accumulation with 16 steps...
+2025-06-30 21:09:08,874 - WARNING - Not enough test batches (10) for accumulation_steps (16)
+2025-06-30 21:09:08,875 - INFO - Starting training for 30 epochs
+2025-06-30 21:09:22,358 - ERROR - Error in epoch 1: mat1 and mat2 shapes cannot be multiplied (2048x768 and 1024x768)
+2025-06-30 21:22:46,254 - INFO - Training with parameters:
+2025-06-30 21:22:46,254 - INFO -   Text model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+2025-06-30 21:22:46,254 - INFO -   Audio model: facebook/w2v-bert-2.0
+2025-06-30 21:22:46,254 - INFO -   Freeze encoders: partial
+2025-06-30 21:22:46,254 - INFO -   Text layers to unfreeze: 5
+2025-06-30 21:22:46,254 - INFO -   Audio layers to unfreeze: 5
+2025-06-30 21:22:46,254 - INFO -   Use cross-modal attention: True
+2025-06-30 21:22:46,255 - INFO -   Use attentive pooling: True
+2025-06-30 21:22:46,255 - INFO -   Use word-level alignment: True
+2025-06-30 21:22:46,255 - INFO -   Batch size: 8
+2025-06-30 21:22:46,255 - INFO -   Gradient accumulation steps: 16
+2025-06-30 21:22:46,255 - INFO -   Effective batch size: 128
+2025-06-30 21:22:46,255 - INFO -   Mixed precision training: False
+2025-06-30 21:22:46,255 - INFO -   Learning rate: 3e-05
+2025-06-30 21:22:46,255 - INFO -   Temperature: 0.1
+2025-06-30 21:22:46,255 - INFO -   Projection dimension: 768
+2025-06-30 21:22:46,255 - INFO -   Training samples: 21968
+2025-06-30 21:22:46,255 - INFO -   Validation samples: 9464
+2025-06-30 21:22:46,255 - INFO -   Test samples: 9467
+2025-06-30 21:22:46,255 - INFO -   Max audio length: 480000 samples (30.00 seconds at 16kHz)
+2025-06-30 21:22:46,255 - INFO - Loading tokenizer and feature extractor...
+2025-06-30 21:22:48,174 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:22:48,174 - INFO - Creating datasets...
+2025-06-30 21:22:48,175 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:22:48,177 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:22:48,178 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:22:48,178 - INFO - Creating data loaders...
+2025-06-30 21:22:48,179 - INFO - Checking a sample batch...
+2025-06-30 21:22:55,640 - INFO -   input_ids_pos: torch.Size([8, 256])
+2025-06-30 21:22:55,641 - INFO -   attention_mask_pos: torch.Size([8, 256])
+2025-06-30 21:22:55,641 - INFO -   input_ids_neg: torch.Size([8, 256])
+2025-06-30 21:22:55,641 - INFO -   attention_mask_neg: torch.Size([8, 256])
+2025-06-30 21:22:55,641 - INFO -   input_values: torch.Size([8, 328, 160])
+2025-06-30 21:22:55,641 - INFO -   attention_mask_audio: torch.Size([8, 328])
+2025-06-30 21:22:55,641 - INFO -   is_corrupted: torch.Size([8])
+2025-06-30 21:22:55,642 - INFO - Initializing model...
+2025-06-30 21:22:56,742 - INFO - Text encoder hidden dim: 768
+2025-06-30 21:22:56,742 - INFO - Audio encoder hidden dim: 1024
+2025-06-30 21:22:56,742 - INFO - Partial freezing: unfreezing last 5 text layers and 5 audio layers
+2025-06-30 21:22:56,742 - INFO - Unfreezing text encoder layer 7
+2025-06-30 21:22:56,743 - INFO - Unfreezing text encoder layer 8
+2025-06-30 21:22:56,743 - INFO - Unfreezing text encoder layer 9
+2025-06-30 21:22:56,743 - INFO - Unfreezing text encoder layer 10
+2025-06-30 21:22:56,743 - INFO - Unfreezing text encoder layer 11
+2025-06-30 21:22:56,744 - INFO - Unfreezing audio encoder layer 19
+2025-06-30 21:22:56,744 - INFO - Unfreezing audio encoder layer 20
+2025-06-30 21:22:56,744 - INFO - Unfreezing audio encoder layer 21
+2025-06-30 21:22:56,744 - INFO - Unfreezing audio encoder layer 22
+2025-06-30 21:22:56,745 - INFO - Unfreezing audio encoder layer 23
+2025-06-30 21:22:56,949 - INFO - Model initialized with 368,335,236 trainable parameters out of 877,375,812 total
+2025-06-30 21:22:58,257 - INFO - Using discriminative learning rates: encoder_lr=3e-06, main_lr=3e-05
+2025-06-30 21:22:58,257 - INFO - Encoder parameters: 252, Non-encoder parameters: 66
+2025-06-30 21:22:58,257 - INFO - Scheduler setup:
+2025-06-30 21:22:58,257 - INFO -   Batches per epoch: 2746
+2025-06-30 21:22:58,257 - INFO -   Accumulation steps: 16
+2025-06-30 21:22:58,257 - INFO -   Optimizer steps per epoch: 172
+2025-06-30 21:22:58,257 - INFO -   Total optimizer steps: 5160
+2025-06-30 21:22:58,257 - INFO -   Warmup steps: 500
+2025-06-30 21:22:58,258 - INFO - Validating gradient accumulation setup...
+2025-06-30 21:22:58,258 - INFO - Validating gradient accumulation with 16 steps...
+2025-06-30 21:23:07,090 - WARNING - Not enough test batches (10) for accumulation_steps (16)
+2025-06-30 21:23:07,091 - INFO - Starting training for 30 epochs
+2025-06-30 21:23:21,189 - ERROR - Error in epoch 1: The size of tensor a (256) must match the size of tensor b (285) at non-singleton dimension 3
+2025-06-30 21:28:01,886 - INFO - Training with parameters:
+2025-06-30 21:28:01,886 - INFO -   Text model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+2025-06-30 21:28:01,886 - INFO -   Audio model: facebook/w2v-bert-2.0
+2025-06-30 21:28:01,886 - INFO -   Freeze encoders: partial
+2025-06-30 21:28:01,886 - INFO -   Text layers to unfreeze: 5
+2025-06-30 21:28:01,887 - INFO -   Audio layers to unfreeze: 5
+2025-06-30 21:28:01,887 - INFO -   Use cross-modal attention: True
+2025-06-30 21:28:01,887 - INFO -   Use attentive pooling: True
+2025-06-30 21:28:01,887 - INFO -   Use word-level alignment: True
+2025-06-30 21:28:01,887 - INFO -   Batch size: 8
+2025-06-30 21:28:01,887 - INFO -   Gradient accumulation steps: 16
+2025-06-30 21:28:01,887 - INFO -   Effective batch size: 128
+2025-06-30 21:28:01,887 - INFO -   Mixed precision training: False
+2025-06-30 21:28:01,887 - INFO -   Learning rate: 3e-05
+2025-06-30 21:28:01,887 - INFO -   Temperature: 0.1
+2025-06-30 21:28:01,887 - INFO -   Projection dimension: 768
+2025-06-30 21:28:01,887 - INFO -   Training samples: 21968
+2025-06-30 21:28:01,887 - INFO -   Validation samples: 9464
+2025-06-30 21:28:01,887 - INFO -   Test samples: 9467
+2025-06-30 21:28:01,887 - INFO -   Max audio length: 480000 samples (30.00 seconds at 16kHz)
+2025-06-30 21:28:01,887 - INFO - Loading tokenizer and feature extractor...
+2025-06-30 21:28:04,074 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:28:04,074 - INFO - Creating datasets...
+2025-06-30 21:28:04,076 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:28:04,078 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:28:04,079 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 21:28:04,079 - INFO - Creating data loaders...
+2025-06-30 21:28:04,080 - INFO - Checking a sample batch...
+2025-06-30 21:28:10,771 - INFO -   input_ids_pos: torch.Size([8, 256])
+2025-06-30 21:28:10,772 - INFO -   attention_mask_pos: torch.Size([8, 256])
+2025-06-30 21:28:10,772 - INFO -   input_ids_neg: torch.Size([8, 256])
+2025-06-30 21:28:10,772 - INFO -   attention_mask_neg: torch.Size([8, 256])
+2025-06-30 21:28:10,772 - INFO -   input_values: torch.Size([8, 328, 160])
+2025-06-30 21:28:10,772 - INFO -   attention_mask_audio: torch.Size([8, 328])
+2025-06-30 21:28:10,773 - INFO -   is_corrupted: torch.Size([8])
+2025-06-30 21:28:10,773 - INFO - Initializing model...
+2025-06-30 21:28:12,280 - INFO - Text encoder hidden dim: 768
+2025-06-30 21:28:12,280 - INFO - Audio encoder hidden dim: 1024
+2025-06-30 21:28:12,280 - INFO - Partial freezing: unfreezing last 5 text layers and 5 audio layers
+2025-06-30 21:28:12,281 - INFO - Unfreezing text encoder layer 7
+2025-06-30 21:28:12,281 - INFO - Unfreezing text encoder layer 8
+2025-06-30 21:28:12,281 - INFO - Unfreezing text encoder layer 9
+2025-06-30 21:28:12,281 - INFO - Unfreezing text encoder layer 10
+2025-06-30 21:28:12,281 - INFO - Unfreezing text encoder layer 11
+2025-06-30 21:28:12,283 - INFO - Unfreezing audio encoder layer 19
+2025-06-30 21:28:12,283 - INFO - Unfreezing audio encoder layer 20
+2025-06-30 21:28:12,283 - INFO - Unfreezing audio encoder layer 21
+2025-06-30 21:28:12,283 - INFO - Unfreezing audio encoder layer 22
+2025-06-30 21:28:12,283 - INFO - Unfreezing audio encoder layer 23
+2025-06-30 21:28:12,506 - INFO - Model initialized with 368,335,236 trainable parameters out of 877,375,812 total
+2025-06-30 21:28:13,505 - INFO - Using discriminative learning rates: encoder_lr=3e-06, main_lr=3e-05
+2025-06-30 21:28:13,505 - INFO - Encoder parameters: 252, Non-encoder parameters: 66
+2025-06-30 21:28:13,505 - INFO - Scheduler setup:
+2025-06-30 21:28:13,505 - INFO -   Batches per epoch: 2746
+2025-06-30 21:28:13,505 - INFO -   Accumulation steps: 16
+2025-06-30 21:28:13,505 - INFO -   Optimizer steps per epoch: 172
+2025-06-30 21:28:13,505 - INFO -   Total optimizer steps: 5160
+2025-06-30 21:28:13,506 - INFO -   Warmup steps: 500
+2025-06-30 21:28:13,506 - INFO - Validating gradient accumulation setup...
+2025-06-30 21:28:13,506 - INFO - Validating gradient accumulation with 16 steps...
+2025-06-30 21:28:23,826 - WARNING - Not enough test batches (10) for accumulation_steps (16)
+2025-06-30 21:28:23,827 - INFO - Starting training for 30 epochs
+2025-06-30 21:28:39,355 - ERROR - Error in epoch 1: mat1 and mat2 shapes cannot be multiplied (2280x1024 and 768x768)
+2025-06-30 22:05:26,018 - INFO - Training with parameters:
+2025-06-30 22:05:26,018 - INFO -   Text model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+2025-06-30 22:05:26,018 - INFO -   Audio model: facebook/w2v-bert-2.0
+2025-06-30 22:05:26,018 - INFO -   Freeze encoders: partial
+2025-06-30 22:05:26,018 - INFO -   Text layers to unfreeze: 5
+2025-06-30 22:05:26,018 - INFO -   Audio layers to unfreeze: 5
+2025-06-30 22:05:26,018 - INFO -   Use cross-modal attention: True
+2025-06-30 22:05:26,018 - INFO -   Use attentive pooling: True
+2025-06-30 22:05:26,018 - INFO -   Use word-level alignment: True
+2025-06-30 22:05:26,018 - INFO -   Batch size: 8
+2025-06-30 22:05:26,018 - INFO -   Gradient accumulation steps: 16
+2025-06-30 22:05:26,018 - INFO -   Effective batch size: 128
+2025-06-30 22:05:26,018 - INFO -   Mixed precision training: False
+2025-06-30 22:05:26,018 - INFO -   Learning rate: 3e-05
+2025-06-30 22:05:26,018 - INFO -   Temperature: 0.1
+2025-06-30 22:05:26,018 - INFO -   Projection dimension: 768
+2025-06-30 22:05:26,018 - INFO -   Training samples: 21968
+2025-06-30 22:05:26,019 - INFO -   Validation samples: 9464
+2025-06-30 22:05:26,019 - INFO -   Test samples: 9467
+2025-06-30 22:05:26,019 - INFO -   Max audio length: 480000 samples (30.00 seconds at 16kHz)
+2025-06-30 22:05:26,019 - INFO - Loading tokenizer and feature extractor...
+2025-06-30 22:05:27,981 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 22:05:27,982 - INFO - Creating datasets...
+2025-06-30 22:05:27,983 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 22:05:27,985 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 22:05:27,987 - INFO - Feature extractor output keys: ['input_features', 'attention_mask']
+2025-06-30 22:05:27,987 - INFO - Creating data loaders...
+2025-06-30 22:05:27,988 - INFO - Checking a sample batch...
+2025-06-30 22:05:34,983 - INFO -   input_ids_pos: torch.Size([8, 256])
+2025-06-30 22:05:34,983 - INFO -   attention_mask_pos: torch.Size([8, 256])
+2025-06-30 22:05:34,984 - INFO -   input_ids_neg: torch.Size([8, 256])
+2025-06-30 22:05:34,984 - INFO -   attention_mask_neg: torch.Size([8, 256])
+2025-06-30 22:05:34,984 - INFO -   input_values: torch.Size([8, 328, 160])
+2025-06-30 22:05:34,984 - INFO -   attention_mask_audio: torch.Size([8, 328])
+2025-06-30 22:05:34,985 - INFO -   is_corrupted: torch.Size([8])
+2025-06-30 22:05:34,985 - INFO - Initializing model...
+2025-06-30 22:05:36,191 - INFO - Text encoder hidden dim: 768
+2025-06-30 22:05:36,191 - INFO - Audio encoder hidden dim: 1024
+2025-06-30 22:05:36,191 - INFO - Partial freezing: unfreezing last 5 text layers and 5 audio layers
+2025-06-30 22:05:36,192 - INFO - Unfreezing text encoder layer 7
+2025-06-30 22:05:36,192 - INFO - Unfreezing text encoder layer 8
+2025-06-30 22:05:36,192 - INFO - Unfreezing text encoder layer 9
+2025-06-30 22:05:36,192 - INFO - Unfreezing text encoder layer 10
+2025-06-30 22:05:36,192 - INFO - Unfreezing text encoder layer 11
+2025-06-30 22:05:36,196 - INFO - Unfreezing audio encoder layer 19
+2025-06-30 22:05:36,196 - INFO - Unfreezing audio encoder layer 20
+2025-06-30 22:05:36,196 - INFO - Unfreezing audio encoder layer 21
+2025-06-30 22:05:36,196 - INFO - Unfreezing audio encoder layer 22
+2025-06-30 22:05:36,196 - INFO - Unfreezing audio encoder layer 23
+2025-06-30 22:05:36,436 - INFO - Model initialized with 368,531,844 trainable parameters out of 877,572,420 total
+2025-06-30 22:05:37,545 - INFO - Using discriminative learning rates: encoder_lr=3e-06, main_lr=3e-05
+2025-06-30 22:05:37,545 - INFO - Encoder parameters: 252, Non-encoder parameters: 66
+2025-06-30 22:05:37,545 - INFO - Scheduler setup:
+2025-06-30 22:05:37,546 - INFO -   Batches per epoch: 2746
+2025-06-30 22:05:37,546 - INFO -   Accumulation steps: 16
+2025-06-30 22:05:37,546 - INFO -   Optimizer steps per epoch: 172
+2025-06-30 22:05:37,546 - INFO -   Total optimizer steps: 5160
+2025-06-30 22:05:37,546 - INFO -   Warmup steps: 500
+2025-06-30 22:05:37,546 - INFO - Validating gradient accumulation setup...
+2025-06-30 22:05:37,546 - INFO - Validating gradient accumulation with 16 steps...
+2025-06-30 22:05:47,121 - WARNING - Not enough test batches (10) for accumulation_steps (16)
+2025-06-30 22:05:47,122 - INFO - Starting training for 30 epochs

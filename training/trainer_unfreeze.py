@@ -197,33 +197,35 @@ class WordLevelAlignmentModule(nn.Module):
     Module to align word-level representations from text with temporal segments in audio.
     Uses attention mechanism to create a soft alignment between words and audio frames.
     """
-    def __init__(self, hidden_dim, num_heads=4, dropout=0.1):
+    def __init__(self, text_hidden_dim, audio_hidden_dim, alignment_dim, num_heads=4, dropout=0.1):
         super().__init__()
         
-        self.hidden_dim = hidden_dim
+        self.text_hidden_dim = text_hidden_dim
+        self.audio_hidden_dim = audio_hidden_dim
+        self.alignment_dim = alignment_dim
         self.num_heads = num_heads
         
         # Projection layers to create query (text) and key/value (audio) representations
-        self.text_projection = nn.Linear(hidden_dim, hidden_dim)
-        self.audio_projection = nn.Linear(hidden_dim, hidden_dim)
+        self.text_projection = nn.Linear(text_hidden_dim, alignment_dim)
+        self.audio_projection = nn.Linear(audio_hidden_dim, alignment_dim)
         
         # Multi-head attention for alignment
         self.alignment_attention = nn.MultiheadAttention(
-            embed_dim=hidden_dim,
+            embed_dim=alignment_dim,
             num_heads=num_heads,
             dropout=dropout,
             batch_first=True
         )
         
         # Output projection and layer norm
-        self.output_projection = nn.Linear(hidden_dim, hidden_dim)
-        self.layer_norm = nn.LayerNorm(hidden_dim)
+        self.output_projection = nn.Linear(alignment_dim, alignment_dim)
+        self.layer_norm = nn.LayerNorm(alignment_dim)
         
         # Alignment confidence scorer (predicts how well each word aligns with audio)
         self.alignment_confidence = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Linear(alignment_dim, alignment_dim // 2),
             nn.ReLU(),
-            nn.Linear(hidden_dim // 2, 1)
+            nn.Linear(alignment_dim // 2, 1)
         )
     
     def forward(self, text_hidden_states, audio_hidden_states, 
@@ -304,8 +306,8 @@ class EnhancedAudioTextModel(nn.Module):
         self,
         text_model_name="sentence-transformers/all-roberta-large-v1",
         audio_model_name="facebook/w2v-bert-2.0",
-        projection_dim=1024,
-        text_embedding_dim=1024,
+        projection_dim=768,
+        text_embedding_dim=768,
         audio_embedding_dim=1024,
         dropout=0.1,
         use_cross_modal=True,
@@ -320,7 +322,10 @@ class EnhancedAudioTextModel(nn.Module):
         # Load pre-trained models
         self.text_encoder = AutoModel.from_pretrained(text_model_name)
         self.audio_encoder = AutoModel.from_pretrained(audio_model_name)
-        
+        self.text_hidden_dim = self.text_encoder.config.hidden_size
+        self.audio_hidden_dim = self.audio_encoder.config.hidden_size
+        logger.info(f"Text encoder hidden dim: {self.text_hidden_dim}")
+        logger.info(f"Audio encoder hidden dim: {self.audio_hidden_dim}")
         # Save configuration
         self.projection_dim = projection_dim
         self.use_cross_modal = use_cross_modal
@@ -424,6 +429,15 @@ class EnhancedAudioTextModel(nn.Module):
         
         # Cross-modal attention (optional)
         if use_cross_modal:
+            self.text_seq_to_projection = nn.Linear(
+                self.text_hidden_dim,  # Dynamic: actual text encoder hidden size
+                projection_dim         # Target projection dimension
+            )
+            self.audio_seq_to_projection = nn.Linear(
+                self.audio_hidden_dim, # Dynamic: actual audio encoder hidden size
+                projection_dim         # Target projection dimension
+            )
+
             self.text_to_audio_attention = CrossModalAttention(
                 dim=projection_dim, 
                 dropout=dropout
@@ -451,10 +465,12 @@ class EnhancedAudioTextModel(nn.Module):
         # Add word-level alignment module (NEW)
         if use_word_alignment:
             self.word_level_alignment = WordLevelAlignmentModule(
-                hidden_dim=projection_dim,
+                text_hidden_dim=self.text_hidden_dim,      # 768 for RoBERTa
+                audio_hidden_dim=self.audio_hidden_dim,    # 1024 for w2v-bert
+                alignment_dim=projection_dim,              # 768 (your shared space)
                 dropout=dropout
             )
-            
+                    
             # Add a layer to incorporate alignment scores into final similarity
             self.alignment_weighting = nn.Sequential(
                 nn.Linear(projection_dim, 1),
@@ -490,7 +506,7 @@ class EnhancedAudioTextModel(nn.Module):
         # 2) cross-modal fusion (if enabled)
         if model.use_cross_modal:
             # text→audio on pos
-            txt_pos_fused, _ = model.apply_cross_modal_attention(
+            txt_pos_fused, aud_fused = model.apply_cross_modal_attention(
                 txt_pos_proj,
                 txt_pos_hidden,
                 batch["attention_mask_pos"],
@@ -509,15 +525,6 @@ class EnhancedAudioTextModel(nn.Module):
                 batch["attention_mask_audio"],
             )
 
-            # audio→text (we can pick pos for symmetry)
-            aud_fused, _ = model.apply_cross_modal_attention(
-                aud_proj,
-                aud_hidden,
-                batch["attention_mask_audio"],
-                txt_pos_proj,
-                txt_pos_hidden,
-                batch["attention_mask_pos"],
-            )
         else:
             txt_pos_fused = txt_pos_proj
             txt_neg_fused = txt_neg_proj
@@ -535,7 +542,7 @@ class EnhancedAudioTextModel(nn.Module):
             model.last_alignment_scores = align_scores
 
             factor = model.alignment_weighting(aligned_pos.mean(dim=1))
-            txt_pos_fused = txt_pos_fused * (0.7 + 0.3 * factor)
+            txt_pos_fused = txt_pos_fused * (0.8 + 0.2 * factor)
 
             aligned_neg, _, _ = model.word_level_alignment(
                 text_hidden_states=txt_neg_hidden,
@@ -544,7 +551,7 @@ class EnhancedAudioTextModel(nn.Module):
                 audio_attention_mask=batch["attention_mask_audio"],
             )
             factor_neg = model.alignment_weighting(aligned_neg.mean(dim=1))
-            txt_neg_fused = txt_neg_fused * (0.5 + 0.3 * factor_neg)
+            txt_neg_fused = txt_neg_fused * (0.3 + 0.3 * factor_neg)
 
         # 4) normalize all
         txt_pos_norm = F.normalize(txt_pos_fused, p=2, dim=1)
@@ -637,102 +644,53 @@ class EnhancedAudioTextModel(nn.Module):
         """
         if not self.use_cross_modal:
             return text_projected, audio_projected
-        # FIRST project the pooled audio into the shared space
-        audio_proj_seq = self.audio_projection(
-            audio_hidden.view(-1, audio_hidden.size(-1))
-            ).view(audio_hidden.size(0), audio_hidden.size(1), -1)
-        # Calculate cross-modal attentions
-        text_attended = self.text_to_audio_attention(
-            text_projected.unsqueeze(1),  # Add sequence dimension [B, 1, D]
-            audio_proj_seq,                 # [B, S_a, D]
-            audio_mask                    # [B, S_a]
-        ).squeeze(1)  # Remove sequence dimension [B, D]
+    
+        audio_proj_seq = self.audio_seq_to_projection(audio_hidden)  
+        text_proj_seq = self.text_seq_to_projection(text_hidden)  
 
-        # Similarly project text hidden states before attending
-        text_proj_seq = self.text_projection(
-            text_hidden.view(-1, text_hidden.size(-1))
-        ).view(text_hidden.size(0), text_hidden.size(1), -1)
+        try:
+            text_attended = self.text_to_audio_attention(
+                text_projected.unsqueeze(1),
+                audio_proj_seq,
+                audio_mask
+            ).squeeze(1)
+        except Exception as e:
+            print(f"Error in text_to_audio_attention: {e}")
+            raise
         
-        audio_attended = self.audio_to_text_attention(
-            audio_projected.unsqueeze(1), # Add sequence dimension [B, 1, D]
-            text_proj_seq,                 # [B, S_t, D]
-            text_mask                    # [B, S_t]
-        ).squeeze(1)  # Remove sequence dimension [B, D]
+        try:
+            audio_attended = self.audio_to_text_attention(
+                audio_projected.unsqueeze(1),
+                text_proj_seq,
+                text_mask
+            ).squeeze(1)
+        except Exception as e:
+            print(f"Error in audio_to_text_attention: {e}")
+            raise
+    
         
-        # Fuse original and attended features
+        # Fuse - now both are projection_dim size
         text_fused = self.text_fusion(torch.cat([text_projected, text_attended], dim=1))
         audio_fused = self.audio_fusion(torch.cat([audio_projected, audio_attended], dim=1))
+        
+
         
         return text_fused, audio_fused
     
     def forward(self, batch):
         """
         Forward pass with enhanced processing and word-level alignment.
-        Compatible with both training and evaluation batch structures.
+        Always uses compute_pos_neg_embeddings for consistency.
         """
-        # Handle different batch structures between training and evaluation
-        if "input_ids_pos" in batch and "input_ids_neg" in batch:
-            # This is a training batch with both positive and negative samples
-            # Use the compute_pos_neg_embeddings method
-            text_pos_emb, text_neg_emb, audio_emb = self.compute_pos_neg_embeddings(self, batch)
-            return text_pos_emb, audio_emb
-        
-        # This is an evaluation batch with standardized keys
-        # Get base embeddings
-        text_projected, text_hidden = self.encode_text(
-            input_ids=batch["input_ids"],
-            attention_mask=batch["attention_mask"]
-        )
-        
-        audio_projected, audio_hidden = self.encode_audio(
-            input_values=batch["input_values"],
-            attention_mask=batch["attention_mask_audio"]
-        )
-        
-        # Apply cross-modal attention if enabled
-        if self.use_cross_modal:
-            text_embeddings, audio_embeddings = self.apply_cross_modal_attention(
-                text_projected, text_hidden, batch["attention_mask"],
-                audio_projected, audio_hidden, batch["attention_mask_audio"]
+        # Check if batch has the expected format
+        if "input_ids_pos" not in batch or "input_ids_neg" not in batch:
+            raise ValueError(
+                "Batch must contain 'input_ids_pos' and 'input_ids_neg'. "
+                "Got keys: {}".format(list(batch.keys()))
             )
-        else:
-            text_embeddings, audio_embeddings = text_projected, audio_projected
         
-        # Store alignment info for loss calculation and visualization
-        self.last_alignment_scores = None
-        self.last_alignment_matrix = None
-        
-        # Apply word-level alignment if enabled
-        if self.use_word_alignment:
-            # Process hidden states through word-level alignment module
-            aligned_text, alignment_scores, alignment_matrix = self.word_level_alignment(
-                text_hidden_states=text_hidden,
-                audio_hidden_states=audio_hidden,
-                text_attention_mask=batch["attention_mask"],
-                audio_attention_mask=batch["attention_mask_audio"]
-            )
-            
-            # Store alignment info for loss calculation and visualization
-            self.last_alignment_scores = alignment_scores
-            self.last_alignment_matrix = alignment_matrix
-            
-            if batch["attention_mask"] is not None:
-                # Set padding tokens to 1.0 (perfect alignment) so they don't affect min
-                masked_scores = alignment_scores * batch["attention_mask"] + (1.0 - batch["attention_mask"])
-                min_alignment = torch.min(masked_scores, dim=1)[0]
-            else:
-                min_alignment = torch.min(alignment_scores, dim=1)[0]
-
-            # Scale the factor more aggressively
-            alignment_factor = torch.sigmoid(min_alignment * 2).unsqueeze(-1)
-            # Apply subtle adjustment based on alignment
-            text_embeddings = text_embeddings * (0.3 + 0.7 * alignment_factor)
-        
-        # Normalize embeddings
-        text_embeddings = F.normalize(text_embeddings, p=2, dim=1)
-        audio_embeddings = F.normalize(audio_embeddings, p=2, dim=1)
-        
-        return text_embeddings, audio_embeddings
+        # Always use the same processing path for both training and evaluation
+        return EnhancedAudioTextModel.compute_pos_neg_embeddings(self, batch)
 
 
 # ===== ALIGNMENT-AWARE LOSS FUNCTION =====
@@ -775,7 +733,7 @@ class AlignmentAwareInfoNCE(torch.nn.Module):
 
         # 4) corrupt-penalty (optional)
         if self.corrupt_gamma > 0:
-            loss = loss = loss + self.corrupt_gamma * F.relu(s_neg).mean()
+            loss = loss + self.corrupt_gamma * F.relu(s_neg).mean()
             
         return loss
 
@@ -1107,7 +1065,6 @@ def train_epoch(
             # Use the COMPLETE architecture via compute_pos_neg_embeddings
             # This includes: encoding → cross-modal attention → word alignment
             txt_pos_norm, txt_neg_norm, aud_norm = EnhancedAudioTextModel.compute_pos_neg_embeddings(model, batch)
-            
             # Compute cosine similarities
             s_pos = (aud_norm * txt_pos_norm).sum(dim=1)  # [B]
             s_neg = (aud_norm * txt_neg_norm).sum(dim=1)  # [B]
@@ -1316,66 +1273,6 @@ def evaluate(model,
     return metrics, all_similarities
 
 
-# ===== VISUALIZATION FUNCTIONS =====
-
-def visualize_alignment(audio_file, text, model, processor, output_path=None):
-    """
-    Visualize the alignment between audio and text.
-    """
-    import matplotlib.pyplot as plt
-    import librosa
-    
-    # Process text and audio
-    text_inputs = processor.process_text(text)
-    audio_inputs = processor.process_audio(audio_file)
-    
-    # Create batch with one item
-    batch = {
-        "input_ids": text_inputs["input_ids"].unsqueeze(0).to(device),
-        "attention_mask": text_inputs["attention_mask"].unsqueeze(0).to(device),
-        "input_values": audio_inputs["input_values"].unsqueeze(0).to(device),
-        "attention_mask_audio": audio_inputs.get("attention_mask_audio", 
-                              torch.ones(1, audio_inputs["input_values"].shape[0], 
-                                        device=device))
-    }
-    
-    # Forward pass
-    with torch.no_grad():
-        text_embeddings, audio_embeddings = model(batch)
-    
-    # Get alignment matrix
-    alignment_matrix = model.last_alignment_matrix[0].cpu().numpy()
-    
-    # Get token list (decode input_ids)
-    tokens = processor.tokenizer.convert_ids_to_tokens(
-        batch["input_ids"][0].cpu().numpy())
-    
-    # Create figure
-    fig, ax = plt.subplots(figsize=(10, 8))
-    im = ax.imshow(alignment_matrix, aspect='auto', cmap='viridis')
-    
-    # Label axes
-    ax.set_xlabel('Audio Frames')
-    ax.set_ylabel('Text Tokens')
-    
-    # Set ticks for text tokens
-    ax.set_yticks(range(len(tokens)))
-    ax.set_yticklabels(tokens)
-    
-    # Add colorbar
-    plt.colorbar(im, ax=ax)
-    
-    # Add title
-    plt.title('Word-Level Audio-Text Alignment')
-    plt.tight_layout()
-    
-    # Save or show
-    if output_path:
-        plt.savefig(output_path)
-    else:
-        plt.show()
-    
-    return alignment_matrix, tokens
 
 
 def plot_similarity_distributions(clean_similarities, corrupt_similarities, output_path=None):
@@ -1782,14 +1679,9 @@ def train_and_evaluate_model(
                         batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
                                 for k, v in batch.items()}
                         
-                        text_embeddings, audio_embeddings = model(batch)
-                        similarities = torch.sum(text_embeddings * audio_embeddings, dim=1).cpu()
-                        
-                        is_corrupted = batch["is_corrupted"].cpu().bool()
-                        if torch.any(is_corrupted):
-                            corrupt_sim.extend(similarities[is_corrupted].numpy())
-                        if torch.any(~is_corrupted):
-                            clean_sim.extend(similarities[~is_corrupted].numpy())
+                        txt_pos_emb, txt_neg_emb, aud_emb = model(batch)  # Returns 3 values
+                        clean_sim.extend((aud_emb * txt_pos_emb).sum(dim=1).cpu().numpy())
+                        corrupt_sim.extend((aud_emb * txt_neg_emb).sum(dim=1).cpu().numpy())
                 
                 # Plot distributions
                 plot_similarity_distributions(
@@ -1867,14 +1759,11 @@ def train_and_evaluate_model(
                 batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
                         for k, v in batch.items()}
                 
-                text_embeddings, audio_embeddings = model(batch)
-                similarities = torch.sum(text_embeddings * audio_embeddings, dim=1).cpu()
+                txt_pos_emb, txt_neg_emb, aud_emb = model(batch)  # Returns 3 values
+                clean_sim.extend((aud_emb * txt_pos_emb).sum(dim=1).cpu().numpy())
+                corrupt_sim.extend((aud_emb * txt_neg_emb).sum(dim=1).cpu().numpy())
                 
-                is_corrupted = batch["is_corrupted"].cpu().bool()
-                if torch.any(is_corrupted):
-                    corrupt_sim.extend(similarities[is_corrupted].numpy())
-                if torch.any(~is_corrupted):
-                    clean_sim.extend(similarities[~is_corrupted].numpy())
+              
         
         # Plot and save distributions
         plot_similarity_distributions(
@@ -1906,14 +1795,9 @@ def train_and_evaluate_model(
                 batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
                         for k, v in batch.items()}
                 
-                text_embeddings, audio_embeddings = model(batch)
-                similarities = torch.sum(text_embeddings * audio_embeddings, dim=1).cpu()
-                
-                is_corrupted = batch["is_corrupted"].cpu().bool()
-                if torch.any(is_corrupted):
-                    corrupt_sim.extend(similarities[is_corrupted].numpy())
-                if torch.any(~is_corrupted):
-                    clean_sim.extend(similarities[~is_corrupted].numpy())
+                txt_pos_emb, txt_neg_emb, aud_emb = model(batch)  # Returns 3 values
+                clean_sim.extend((aud_emb * txt_pos_emb).sum(dim=1).cpu().numpy())
+                corrupt_sim.extend((aud_emb * txt_neg_emb).sum(dim=1).cpu().numpy())
         
         # Plot and save distributions
         plot_similarity_distributions(
@@ -1961,7 +1845,7 @@ def main():
                         help="Text encoder model name")
     parser.add_argument("--audio_model", type=str, default="facebook/w2v-bert-2.0",
                         help="Audio encoder model name")
-    parser.add_argument("--projection_dim", type=int, default=1024,
+    parser.add_argument("--projection_dim", type=int, default=768,
                         help="Dimension of the shared embedding space")
     parser.add_argument("--no_cross_modal", action="store_true",
                         help="Disable cross-modal attention")

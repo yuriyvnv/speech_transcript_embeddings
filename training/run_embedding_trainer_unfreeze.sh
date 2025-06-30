@@ -8,10 +8,10 @@ set -e
 
 # Default values
 DATA_DIR="/home/yperezhohin/speech_transcript_embeddings/common_voice_data"
-OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze_5_layers_wt_alignment"
-TEXT_MODEL="sentence-transformers/all-roberta-large-v1"
+OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze_5_layers_wt_alignment_correct_encoder"
+TEXT_MODEL="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 AUDIO_MODEL="facebook/w2v-bert-2.0"
-PROJECTION_DIM=1024
+PROJECTION_DIM=768
 BATCH_SIZE=8 # 64 with accumulation steps
 NUM_EPOCHS=30
 LEARNING_RATE=3e-5
