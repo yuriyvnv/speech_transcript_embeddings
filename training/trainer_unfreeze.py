@@ -471,11 +471,8 @@ class EnhancedAudioTextModel(nn.Module):
                 dropout=dropout
             )
                     
-            # Add a layer to incorporate alignment scores into final similarity
-            self.alignment_weighting = nn.Sequential(
-                nn.Linear(projection_dim, 1),
-                nn.Sigmoid()
-            )
+            # Alignment scores are used directly in the loss function
+            # No need for additional weighting layers
         
         # Log number of trainable parameters
         trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -538,20 +535,8 @@ class EnhancedAudioTextModel(nn.Module):
                 text_attention_mask=batch["attention_mask_pos"],
                 audio_attention_mask=batch["attention_mask_audio"],
             )
-            # store for loss fn
+            # store for loss fn - this is where alignment should influence training
             model.last_alignment_scores = align_scores
-
-            factor = model.alignment_weighting(aligned_pos.mean(dim=1))
-            txt_pos_fused = txt_pos_fused * (0.8 + 0.2 * factor)
-
-            aligned_neg, _, _ = model.word_level_alignment(
-                text_hidden_states=txt_neg_hidden,
-                audio_hidden_states=aud_hidden,
-                text_attention_mask=batch["attention_mask_neg"],
-                audio_attention_mask=batch["attention_mask_audio"],
-            )
-            factor_neg = model.alignment_weighting(aligned_neg.mean(dim=1))
-            txt_neg_fused = txt_neg_fused * (0.3 + 0.3 * factor_neg)
 
         # 4) normalize all
         txt_pos_norm = F.normalize(txt_pos_fused, p=2, dim=1)
