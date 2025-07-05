@@ -1098,9 +1098,12 @@ def train_epoch(
             optimizer.zero_grad()
 
         # 5) Track similarities on CPU (use original loss for reporting)
-        clean_sims.extend(s_pos.detach().cpu().tolist())
-        corrupt_sims.extend(s_neg.detach().cpu().tolist())
 
+        s_pos_hr= to_human_readable(s_pos, temperature=0.1, scale="prob")
+        s_neg_hr= to_human_readable(s_neg, temperature=0.1, scale="prob")
+        clean_sims.extend(s_pos_hr.detach().cpu().tolist())
+        corrupt_sims.extend(s_neg_hr.detach().cpu().tolist())
+        
         # 6) Accumulate loss for reporting (use original unscaled loss)
         batch_size = s_pos.size(0)
         total_loss += loss.item() * batch_size  # Use original loss, not scaled
@@ -1188,10 +1191,12 @@ def evaluate(model,
                     # Calculate loss correctly
                     loss = loss_fn(s_pos, s_neg, alignment_scores=alignment_scores)
 
+                s_pos_hr = to_human_readable(s_pos, temperature=0.1, scale='prob')
+                s_neg_hr = to_human_readable(s_neg, temperature=0.1, scale='prob')
                 # Collect similarities
-                all_similarities.extend(s_pos.cpu().numpy())  # Use positive similarities for general metrics
-                clean_similarities.extend(s_pos.cpu().numpy())
-                corrupt_similarities.extend(s_neg.cpu().numpy())
+                all_similarities.extend(s_pos_hr.cpu().numpy())  # Use positive similarities for general metrics
+                clean_similarities.extend(s_pos_hr.cpu().numpy())
+                corrupt_similarities.extend(s_neg_hr.cpu().numpy())
 
                 # Update counters
                 batch_size = aud_emb.size(0)
