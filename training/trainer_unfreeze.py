@@ -8,6 +8,9 @@ by adding word-level alignment mechanisms.
 """
 
 import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512,expandable_segments:True"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 import torch
 import logging
 import numpy as np
@@ -38,12 +41,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configure environment settings
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 print(f"Using GPU: {torch.cuda.get_device_name(0)}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128,expandable_segments:True"
 
 os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN")
+
+def print_memory_summary():
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated()/1024**3
+        reserved = torch.cuda.memory_reserved()/1024**3
+        max_allocated = torch.cuda.max_memory_allocated()/1024**3
+        total = torch.cuda.get_device_properties(0).total_memory/1024**3
+        print(f"GPU Memory - Allocated: {allocated:.2f}GB, Reserved: {reserved:.2f}GB, Max: {max_allocated:.2f}GB, Total: {total:.2f}GB")
+
+print(f"Using GPU: {torch.cuda.get_device_name(0)}")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print_memory_summary()
+
+# Verify CUDA allocation config was applied
+print(f"CUDA Alloc Config: {os.environ.get('PYTORCH_CUDA_ALLOC_CONF', 'Not set')}")
 
 # ===== ENHANCED COMPONENTS =====
 
@@ -1129,9 +1145,11 @@ def train_epoch(
             "opt_steps": optimizer_steps
         })
 
-        # 8) Clear memory periodically
-        if batch_idx % 50 == 0:
+        # 8 Clear memory periodically
+        if batch_idx % 35 == 0:
             torch.cuda.empty_cache()
+            if batch_idx % 100 == 0:
+                print_memory_summary()
 
     logger.info(f"Epoch {epoch}: Total optimizer steps: {optimizer_steps}")
     

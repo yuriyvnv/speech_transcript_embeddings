@@ -12,7 +12,7 @@ OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_opti
 TEXT_MODEL="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 AUDIO_MODEL="facebook/w2v-bert-2.0"
 PROJECTION_DIM=768
-BATCH_SIZE=35 # 35*76 = 760 with accumulation steps
+BATCH_SIZE=32 # 35*76 = 760 with accumulation steps
 NUM_EPOCHS=30
 LEARNING_RATE=2.1e-3
 WEIGHT_DECAY=0.01
@@ -20,7 +20,7 @@ TEMPERATURE=0.1
 MAX_TEXT_LENGTH=128
 WARMUP_STEPS=1000
 SAVE_EVERY=15
-ACC_STEPS=22
+ACC_STEPS=24
 MAX_AUDIO_LEN=480000
 SEED=42
 DEBUG=false
@@ -273,7 +273,6 @@ echo "================================================================"
 echo ""
 
 # Build command with appropriate flags
-CMD= "ls"
 CMD="python trainer_unfreeze.py"
 CMD+=" --data_dir \"$DATA_DIR\""
 CMD+=" --output_dir \"$OUTPUT_DIR\""
@@ -317,10 +316,28 @@ fi
 if [ -n "$NO_WORD_ALIGNMENT_FLAG" ]; then
   CMD+=" $NO_WORD_ALIGNMENT_FLAG"
 fi
+echo "Creating output directory: $OUTPUT_DIR"
 
 # Create output directory if it doesn't exist
-mkdir -p "$OUTPUT_DIR"
-
+mkdir -pv "$OUTPUT_DIR"
+# Verify directory creation and permissions
+if [ -d "$OUTPUT_DIR" ]; then
+    echo "✓ Directory exists: $OUTPUT_DIR"
+    ls -la "$OUTPUT_DIR"
+    echo "Directory permissions: $(stat -c '%A' "$OUTPUT_DIR")"
+    
+    # Test write permissions
+    if touch "$OUTPUT_DIR/test_write.tmp" 2>/dev/null; then
+        echo "✓ Write permissions confirmed"
+        rm "$OUTPUT_DIR/test_write.tmp"
+    else
+        echo "✗ No write permissions to $OUTPUT_DIR"
+        exit 1
+    fi
+else
+    echo "✗ Failed to create directory: $OUTPUT_DIR"
+    exit 1
+fi
 # Display the command being run
 echo "Running command:"
 echo "$CMD"
@@ -331,6 +348,10 @@ echo ""
 START_TIME=$(date)
 echo "Training started at: $START_TIME"
 echo ""
+
+export CUDA_VISIBLE_DEVICES=0
+export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512,expandable_segments:True"
+
 
 # Run the command with Python
 eval "$CMD"
