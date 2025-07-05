@@ -25,7 +25,8 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
 from datasets import load_dataset, Audio
 import matplotlib.pyplot as plt
-
+from dotenv import load_dotenv
+load_dotenv()   
 
 # Set up logging
 logging.basicConfig(
@@ -41,6 +42,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128,expandable_segments:True"
 
+os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN")
 
 # ===== ENHANCED COMPONENTS =====
 
@@ -1465,7 +1467,7 @@ def train_and_evaluate_model(
     # Enhanced optimizer initialization with discriminative learning rates
     if freeze_encoders == "partial":
         # Use discriminative learning rates for partial unfreezing
-        encoder_lr = learning_rate * 0.1  # 10x lower LR for encoder layers
+        encoder_lr = learning_rate /50  
         
         # Separate parameters into encoder and non-encoder groups
         encoder_params = []
@@ -1900,7 +1902,7 @@ def main():
     logger.info("Loading Common Voice dataset...")
     
     try:
-        dataset = load_dataset("mozilla-foundation/common_voice_17_0", "pt")
+        dataset = load_dataset("mozilla-foundation/common_voice_17_0", "pt", token=True)
         
         # Cast to Audio column with 16kHz sampling rate
         dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))

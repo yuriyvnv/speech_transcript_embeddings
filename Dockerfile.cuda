@@ -1,0 +1,69 @@
+# Complete working Dockerfile.cuda
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Install system dependencies including audio libraries and bc
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-dev \
+    git \
+    wget \
+    curl \
+    ffmpeg \
+    libsndfile1 \
+    libsndfile1-dev \
+    sox \
+    libsox-dev \
+    libsox-fmt-all \
+    bc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create python symlink so 'python' command works
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+# Upgrade pip
+RUN pip3 install --upgrade pip
+
+WORKDIR /app
+
+# Install all Python dependencies directly
+RUN pip3 install \
+    dotenv \
+    torch==2.0.1 \
+    torchaudio==2.0.2 \
+    transformers==4.36.2 \
+    sentence-transformers==2.2.2 \
+    datasets==2.14.6 \
+    soundfile==0.12.1 \
+    librosa==0.10.1 \
+    numpy==1.24.3 \
+    pandas==2.0.3 \
+    matplotlib==3.7.2 \
+    seaborn==0.12.2 \
+    tqdm==4.66.1 \
+    tensorboard==2.13.0 \
+    scikit-learn==1.3.0 \
+    pyyaml==6.0.1 \
+    omegaconf==2.3.0 \
+    accelerate==0.24.1 \
+    evaluate==0.4.1 \
+    jiwer==3.0.3 \
+    pydub==0.25.1
+
+# Copy everything
+COPY . .
+
+# Create directories
+RUN mkdir -p checkpoints logs
+ARG HF_TOKEN
+RUN if [ -n "$HF_TOKEN" ]; then \
+    huggingface-cli login --token $HF_TOKEN; \
+    fi
+
+# Make scripts executable
+RUN chmod +x training/run_embedding_trainer_unfreeze.sh
+RUN ls
+# Run training
+CMD ["bash", "training/run_embedding_trainer_unfreeze.sh"]

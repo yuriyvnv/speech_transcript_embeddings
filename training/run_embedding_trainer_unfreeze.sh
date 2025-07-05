@@ -14,7 +14,7 @@ AUDIO_MODEL="facebook/w2v-bert-2.0"
 PROJECTION_DIM=768
 BATCH_SIZE=10 # 10*76 = 760 with accumulation steps
 NUM_EPOCHS=30
-LEARNING_RATE=5e-5
+LEARNING_RATE=2.1e-3
 WEIGHT_DECAY=0.01
 TEMPERATURE=0.1
 MAX_TEXT_LENGTH=128
@@ -260,7 +260,8 @@ echo "================================================================"
 echo ""
 
 # Build command with appropriate flags
-CMD="python trainer_unfreeze.py"
+CMD= "ls"
+CMD="python training/trainer_unfreeze.py"
 CMD+=" --data_dir \"$DATA_DIR\""
 CMD+=" --output_dir \"$OUTPUT_DIR\""
 CMD+=" --text_model \"$TEXT_MODEL\""
