@@ -38,7 +38,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configure environment settings
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+print(f"Using GPU: {torch.cuda.get_device_name(0)}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128,expandable_segments:True"
 
@@ -314,7 +315,7 @@ class EnhancedAudioTextModel(nn.Module):
         dropout=0.1,
         use_cross_modal=True,
         use_attentive_pooling=True,
-        use_word_alignment=True,  # New parameter
+        use_word_alignment=False,  # New parameter
         freeze_encoders="partial",    # Changed to string: "full", "partial", "none"
         text_layers_to_unfreeze=5,    # New parameter for partial unfreezing
         audio_layers_to_unfreeze=5,   # New parameter for partial unfreezing
@@ -1312,7 +1313,7 @@ def train_and_evaluate_model(
     projection_dim=768,
     use_cross_modal=True,
     use_attentive_pooling=True,
-    use_word_alignment=True,  # New default: use word-level alignment
+    use_word_alignment=False,  # New default: use word-level alignment
     save_every=1,
     accumulation_steps=4,  # Gradient accumulation steps
     fp16=True,  # Use mixed precision training
@@ -1931,7 +1932,7 @@ def main():
         projection_dim=args.projection_dim,
         use_cross_modal=not args.no_cross_modal,
         use_attentive_pooling=not args.no_attentive_pooling,
-        use_word_alignment=True,
+        use_word_alignment=False,
         save_every=args.save_every,
         accumulation_steps=args.acc_steps,
         fp16=not args.no_fp16,

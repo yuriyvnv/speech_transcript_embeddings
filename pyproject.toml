@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "datasets>=3.6.0",
+    "dotenv>=0.9.9",
     "ffmpeg>=1.4",
     "librosa==0.10.1",
     "matplotlib>=3.10.3",

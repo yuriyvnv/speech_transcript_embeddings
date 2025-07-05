@@ -8,11 +8,11 @@ set -e
 
 # Default values
 DATA_DIR="/home/yperezhohin/speech_transcript_embeddings/common_voice_data"
-OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze_5_layers_wt_alignment_correct_encoder"
+OUTPUT_DIR="/home/yperezhohin/speech_transcript_embeddings/audio_text_model_optimized_unfreeze_3_layers_wo_alignment_correct_encoder"
 TEXT_MODEL="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 AUDIO_MODEL="facebook/w2v-bert-2.0"
 PROJECTION_DIM=768
-BATCH_SIZE=10 # 10*76 = 760 with accumulation steps
+BATCH_SIZE=35 # 35*76 = 760 with accumulation steps
 NUM_EPOCHS=30
 LEARNING_RATE=2.1e-3
 WEIGHT_DECAY=0.01
@@ -20,7 +20,7 @@ TEMPERATURE=0.1
 MAX_TEXT_LENGTH=128
 WARMUP_STEPS=1000
 SAVE_EVERY=15
-ACC_STEPS=76
+ACC_STEPS=22
 MAX_AUDIO_LEN=480000
 SEED=42
 DEBUG=false
@@ -31,6 +31,7 @@ AUDIO_LAYERS_TO_UNFREEZE=3 # New: default unfreezing 3 audio layers
 DEBUG_FLAG=""
 BUCKET_FLAG=""
 VALIDATE_GRADIENTS_FLAG=""
+NO_WORD_ALIGNMENT_FLAG=""  # New: word alignment flag
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -111,6 +112,12 @@ while [[ $# -gt 0 ]]; do
       AUDIO_LAYERS_TO_UNFREEZE="$2"
       shift 2
       ;;
+    --no_word_alignment)
+      NO_WORD_ALIGNMENT_FLAG="--no_word_alignment"
+      # Update output directory name to reflect no alignment
+      OUTPUT_DIR=$(echo "$OUTPUT_DIR" | sed 's/wt_alignment/wo_alignment/g')
+      shift
+      ;;
     --bucket)
       BUCKET_FLAG="--bucket"
       shift
@@ -161,6 +168,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --no_fp16               Disable mixed precision training"
       echo "  --debug                 Enable debug logging"
       echo "  --validate_gradients    Run gradient accumulation validation only (no training)"
+      echo "  --no_word_alignment     Disable word-level alignment (changes output dir to wo_alignment)"
       echo ""
       echo "Examples:"
       echo "  # Default partial unfreezing (recommended)"
@@ -178,6 +186,9 @@ while [[ $# -gt 0 ]]; do
       echo "  # High learning rate with partial unfreezing"
       echo "  $0 --learning_rate 1e-4 --freeze_encoders partial --text_layers_to_unfreeze 2"
       echo ""
+      echo "  # Training without word alignment"
+      echo "  $0 --no_word_alignment"
+      echo ""
       echo "  # Validate gradient accumulation setup"
       echo "  $0 --validate_gradients --acc_steps 8"
       echo ""
@@ -187,6 +198,7 @@ while [[ $# -gt 0 ]]; do
       echo "  - Use 'full' freezing for fastest training, 'partial' for best performance"
       echo "  - Gradient accumulation is properly implemented with correct scheduler timing"
       echo "  - Use --validate_gradients to test gradient accumulation setup before training"
+      echo "  - Word alignment is enabled by default, use --no_word_alignment to disable"
       exit 0
       ;;
     *)
@@ -255,13 +267,14 @@ echo "  Max audio length:       $MAX_AUDIO_LEN samples ($( echo "scale=1; $MAX_A
 echo "  Random seed:            $SEED"
 echo "  Mixed precision:        $([ "$FP16_FLAG" = "--no_fp16" ] && echo "Disabled" || echo "Enabled")"
 echo "  Length bucketing:       $([ -n "$BUCKET_FLAG" ] && echo "Enabled" || echo "Disabled")"
+echo "  Word alignment:         $([ -n "$NO_WORD_ALIGNMENT_FLAG" ] && echo "DISABLED" || echo "ENABLED")"
 echo "  Debug logging:          $([ -n "$DEBUG_FLAG" ] && echo "Enabled" || echo "Disabled")"
 echo "================================================================"
 echo ""
 
 # Build command with appropriate flags
 CMD= "ls"
-CMD="python training/trainer_unfreeze.py"
+CMD="python trainer_unfreeze.py"
 CMD+=" --data_dir \"$DATA_DIR\""
 CMD+=" --output_dir \"$OUTPUT_DIR\""
 CMD+=" --text_model \"$TEXT_MODEL\""
@@ -299,6 +312,10 @@ fi
 
 if [ -n "$VALIDATE_GRADIENTS_FLAG" ]; then
   CMD+=" $VALIDATE_GRADIENTS_FLAG"
+fi
+
+if [ -n "$NO_WORD_ALIGNMENT_FLAG" ]; then
+  CMD+=" $NO_WORD_ALIGNMENT_FLAG"
 fi
 
 # Create output directory if it doesn't exist

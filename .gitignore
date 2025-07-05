@@ -34,3 +34,8 @@ audio_text_model_optimized_unfreeze_5_layers_wt_alignment/final_model.pt
 audio_text_model_optimized_unfreeze_3_layers_wt_alignment_correct_encoder/best_model_gap.pt
 audio_text_model_optimized_unfreeze_3_layers_wt_alignment_correct_encoder/best_model_loss.pt
 audio_text_model_optimized_unfreeze_3_layers_wt_alignment_correct_encoder/final_model.pt
+=1.5.0
+.gitignore
+=3.10.3
+=4.67.1
+=3.6.0
